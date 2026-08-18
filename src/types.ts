@@ -89,9 +89,18 @@ export interface StoredPhoto {
   createdAt: string;
 }
 
+/** Which vision model reads label photos. */
+export type ScanProvider = 'claude' | 'gemini';
+
 export interface Settings {
-  /** Anthropic API key, kept on this device only. Empty disables label scanning. */
+  /** Which provider label scanning uses. */
+  scanProvider: ScanProvider;
+  /** Anthropic API key, kept on this device only. Empty disables Claude scanning. */
   apiKey: string;
+  claudeModel: string;
+  /** Google AI Studio key — Gemini has a no-cost free tier. */
+  geminiApiKey: string;
+  geminiModel: string;
   /** Default currency for new purchases. */
   currency: string;
 }

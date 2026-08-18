@@ -157,7 +157,16 @@ export const copyPhoto = async (id: string | null): Promise<string | null> => {
 
 /* ---------------------------------------------------------------- settings */
 
-const DEFAULT_SETTINGS: Settings = { apiKey: '', currency: 'EUR' };
+const DEFAULT_SETTINGS: Settings = {
+  scanProvider: 'claude',
+  apiKey: '',
+  claudeModel: 'claude-opus-5',
+  geminiApiKey: '',
+  // An alias rather than a pinned version: if it is not available to the key,
+  // the scanner asks the API which models are and corrects itself.
+  geminiModel: 'gemini-flash-latest',
+  currency: 'EUR',
+};
 
 export const getSettings = async (): Promise<Settings> => {
   const stored = (await (await getDb()).get('settings', 'app')) as Partial<Settings> | undefined;

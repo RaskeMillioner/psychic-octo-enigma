@@ -4,8 +4,9 @@ A mobile-first wine cellar tracker, drinking diary and statistics dashboard. It 
 entirely in the browser: your cellar, your tasting notes and your label photos stay on
 your own device, and the app installs to the home screen like a native app.
 
-Photograph a label and Claude reads it — producer, appellation, vintage, classification,
-grape varieties — and pre-fills the form for you to correct.
+Photograph a label and a vision model reads it — producer, appellation, vintage,
+classification, grape varieties — and pre-fills the form for you to correct. Or type the
+appellation and let the app's own reference list fill in the rest, with no account at all.
 
 ## What it does
 
@@ -26,19 +27,39 @@ country, style, grape, region and producer; bottles drunk per month over the las
 rating distribution and average rating by country and by style; how much you have drunk
 and what it was worth.
 
-## Label scanning
+## Filling in a wine
 
-Scanning sends the photo to the Anthropic API from your device and asks Claude
-(`claude-opus-5`) to return the metadata as structured JSON, which lands in an editable
+### The appellation pack (free, offline)
+
+Type an appellation and the app fills the blanks around it: "Barolo" gives Italy,
+Piedmont, Nebbiolo and DOCG; "Gevrey-Chambertin 1er Cru" gives France, Burgundy, Pinot
+Noir and Premier Cru. Around 230 classic appellations ship inside the app, matched
+through their aliases and label wordings, ignoring case and accents. It **only ever fills
+empty fields** — anything you typed stays as you typed it.
+
+Everything about it is local: no account, no key, no network, no rate limit. It also runs
+after a label scan, to fill whatever the model left blank.
+
+### Label scanning (optional, needs a key)
+
+Scanning sends the photo straight from your device to whichever provider you pick in
+**Settings**, and asks for the metadata as structured JSON, which lands in an editable
 form — nothing is saved until you press save. The model reads what is printed and fills
-the rest from what it knows about the producer and appellation (a Chablis is Chardonnay,
-a Barolo is Nebbiolo from Piedmont), reports its confidence, and says what it inferred
-rather than read. This is the model's own knowledge, not a live wine database, so
-confirm the details on obscure bottles.
+the rest from what it knows about the producer and appellation, reports its confidence,
+and says what it inferred rather than read. This is the model's own knowledge, not a live
+wine database, so confirm the details on obscure bottles.
 
-Add your API key under **Settings**. It is stored only in this browser and used only for
-requests to Anthropic; without it every other part of the app still works and wines are
-entered by hand.
+| Provider | Cost | Notes |
+| --- | --- | --- |
+| **Gemini** (`gemini-flash-latest`) | Free tier, no card | Rate limited. Google's free-tier terms permit using what you send to improve their models — that includes your label photos. Key from aistudio.google.com/apikey. |
+| **Claude** (`claude-opus-5`) | Pay per scan, roughly a few cents a label | No training on your data. Key from console.anthropic.com. |
+
+Both are called directly from the browser with plain `fetch`/SDK calls; keys are stored
+only in this browser, on this device, and go nowhere but the provider you chose. If the
+Gemini model id ever stops existing, the scanner asks your key which models it can reach
+and corrects itself.
+
+Without any key, every other part of the app still works and wines are entered by hand.
 
 ## Running it
 
@@ -71,8 +92,12 @@ single JSON file containing every record and photo, and an import that merges on
 ```
 src/
   lib/db.ts            IndexedDB schema, repositories, backup import/export
-  lib/scan.ts          label photo → structured metadata via the Anthropic API
-  lib/labelSchema.ts   the extraction schema (lazy-loaded with the SDK)
+  lib/scan.ts          picks a provider and loads it on demand
+  lib/scanClaude.ts    Anthropic SDK + zod structured outputs
+  lib/scanGemini.ts    Gemini REST call, model listing and self-correction
+  lib/labelFields.ts   the extraction fields, shared by both providers
+  lib/appellation.ts   appellation matching and blank-filling
+  data/appellations.ts the offline appellation reference
   lib/stats.ts         all aggregations behind the statistics screen
   lib/store.tsx        in-memory store, reloaded from IndexedDB after each mutation
   components/          form fields, charts, photo capture, shared UI
@@ -80,5 +105,6 @@ src/
 scripts/make-icons.mjs generates the PNG app icons and the SVG favicon
 ```
 
-The Anthropic SDK, its zod helpers and the extraction schema are loaded on demand the
-first time you scan a label, so they stay out of the initial download.
+The Anthropic SDK and its zod helpers are loaded on demand the first time you scan with
+Claude, so they stay out of the initial download; the Gemini path is a plain `fetch` and
+needs no SDK at all.

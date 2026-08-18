@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { DownloadIcon, TrashIcon, UploadIcon } from '../components/icons';
+import { DownloadIcon, SparkleIcon, TrashIcon, UploadIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { Banner, Field, Spinner } from '../components/ui';
 import { clearAllData, exportBackup, importBackup } from '../lib/db';
+import { listGeminiModels, type GeminiModel } from '../lib/scanGemini';
 import { useData } from '../lib/store';
+import type { ScanProvider, Settings } from '../types';
 
 const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -11,21 +13,25 @@ const formatBytes = (bytes: number) => {
   return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
 };
 
+const PROVIDERS: { id: ScanProvider; label: string }[] = [
+  { id: 'gemini', label: 'Gemini — free tier' },
+  { id: 'claude', label: 'Claude — pay per scan' },
+];
+
 export const SettingsPage = () => {
   const { settings, updateSettings, wines, diary, reload } = useData();
-  const [apiKey, setApiKey] = useState(settings.apiKey);
-  const [currency, setCurrency] = useState(settings.currency);
+  const [draft, setDraft] = useState<Settings>(settings);
   const [showKey, setShowKey] = useState(false);
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-  const [usage, setUsage] = useState<string>('');
+  const [usage, setUsage] = useState('');
+  const [models, setModels] = useState<GeminiModel[]>([]);
+  const [modelsError, setModelsError] = useState('');
+  const [loadingModels, setLoadingModels] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    setApiKey(settings.apiKey);
-    setCurrency(settings.currency);
-  }, [settings]);
+  useEffect(() => setDraft(settings), [settings]);
 
   useEffect(() => {
     void navigator.storage?.estimate?.().then((estimate) => {
@@ -33,9 +39,32 @@ export const SettingsPage = () => {
     });
   }, [wines, diary]);
 
-  const saveSettings = async () => {
-    await updateSettings({ apiKey: apiKey.trim(), currency: currency.trim().toUpperCase() || 'EUR' });
+  const patch = (next: Partial<Settings>) => setDraft((current) => ({ ...current, ...next }));
+
+  const save = async () => {
+    await updateSettings({
+      ...draft,
+      apiKey: draft.apiKey.trim(),
+      geminiApiKey: draft.geminiApiKey.trim(),
+      claudeModel: draft.claudeModel.trim() || 'claude-opus-5',
+      geminiModel: draft.geminiModel.trim() || 'gemini-flash-latest',
+      currency: draft.currency.trim().toUpperCase() || 'EUR',
+    });
     setStatus('Settings saved.');
+  };
+
+  const loadModels = async () => {
+    setLoadingModels(true);
+    setModelsError('');
+    try {
+      const available = await listGeminiModels(draft.geminiApiKey.trim());
+      setModels(available);
+      if (available.length === 0) setModelsError('That key returned no usable models.');
+    } catch (error) {
+      setModelsError(error instanceof Error ? error.message : 'Could not load models.');
+    } finally {
+      setLoadingModels(false);
+    }
   };
 
   const download = async () => {
@@ -78,42 +107,130 @@ export const SettingsPage = () => {
     setStatus('All wine data deleted.');
   };
 
+  const gemini = draft.scanProvider === 'gemini';
+
   return (
     <Screen title="Settings">
       <section className="section">
         <h3 className="section-title">Label scanning</h3>
-        <div className="stack">
-          <Field
-            label="Anthropic API key"
-            hint="Stored only in this browser, on this device. Used to read label photos."
-          >
-            <input
-              type={showKey ? 'text' : 'password'}
-              value={apiKey}
-              placeholder="sk-ant-…"
-              autoComplete="off"
-              spellCheck={false}
-              onChange={(event) => setApiKey(event.target.value)}
-            />
-          </Field>
-          <div className="row">
-            <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
-              {showKey ? 'Hide' : 'Show'}
+
+        <div className="chips" style={{ marginBottom: 12 }}>
+          {PROVIDERS.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              className={`chip${draft.scanProvider === provider.id ? ' active' : ''}`}
+              onClick={() => patch({ scanProvider: provider.id })}
+            >
+              {provider.label}
             </button>
-            <span className="tiny faint">
-              Get a key at console.anthropic.com. Requests go straight from this device to Anthropic.
-            </span>
-          </div>
+          ))}
         </div>
+
+        {gemini ? (
+          <div className="stack">
+            <Field
+              label="Google AI Studio key"
+              hint="Free tier, no card needed. Get one at aistudio.google.com/apikey."
+            >
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={draft.geminiApiKey}
+                placeholder="AIza…"
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => patch({ geminiApiKey: event.target.value })}
+              />
+            </Field>
+
+            <Field label="Model" hint="Left alone, the app picks a working model for your key.">
+              <input
+                list="gemini-models"
+                value={draft.geminiModel}
+                placeholder="gemini-flash-latest"
+                spellCheck={false}
+                onChange={(event) => patch({ geminiModel: event.target.value })}
+              />
+            </Field>
+            <datalist id="gemini-models">
+              {models.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.label}
+                </option>
+              ))}
+            </datalist>
+
+            <div className="row">
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={loadingModels || !draft.geminiApiKey.trim()}
+                onClick={() => void loadModels()}
+              >
+                {loadingModels ? <Spinner /> : null}
+                Load models
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
+                {showKey ? 'Hide key' : 'Show key'}
+              </button>
+              {models.length ? (
+                <span className="tiny faint">{models.length} available</span>
+              ) : null}
+            </div>
+
+            {modelsError ? <Banner tone="error">{modelsError}</Banner> : null}
+
+            <Banner>
+              Google's free tier costs nothing and needs no card, but it is rate limited, and
+              Google's free-tier terms permit using what you send to improve their models. Your
+              label photos would be covered by that.
+            </Banner>
+          </div>
+        ) : (
+          <div className="stack">
+            <Field
+              label="Anthropic API key"
+              hint="Pay per scan — roughly a few cents a label. From console.anthropic.com."
+            >
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={draft.apiKey}
+                placeholder="sk-ant-…"
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => patch({ apiKey: event.target.value })}
+              />
+            </Field>
+
+            <Field label="Model">
+              <input
+                value={draft.claudeModel}
+                placeholder="claude-opus-5"
+                spellCheck={false}
+                onChange={(event) => patch({ claudeModel: event.target.value })}
+              />
+            </Field>
+
+            <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
+              {showKey ? 'Hide key' : 'Show key'}
+            </button>
+          </div>
+        )}
+
+        <p className="tiny faint" style={{ marginTop: 10 }}>
+          Keys are stored only in this browser, on this device, and are sent only to the provider
+          you pick. Without a key everything else still works — typing an appellation fills in the
+          region, grapes and classification from the app's own reference list.
+        </p>
       </section>
 
       <section className="section">
         <h3 className="section-title">Preferences</h3>
         <Field label="Default currency" hint="Used for new purchases.">
           <input
-            value={currency}
+            value={draft.currency}
             maxLength={3}
-            onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+            onChange={(event) => patch({ currency: event.target.value.toUpperCase() })}
           />
         </Field>
       </section>
@@ -122,8 +239,9 @@ export const SettingsPage = () => {
         type="button"
         className="btn btn-primary btn-block"
         style={{ marginBottom: 26 }}
-        onClick={() => void saveSettings()}
+        onClick={() => void save()}
       >
+        <SparkleIcon />
         Save settings
       </button>
 
@@ -186,16 +304,30 @@ export const SettingsPage = () => {
               Delete every wine, diary entry and photo on this device? This cannot be undone.
             </div>
             <div className="row">
-              <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setConfirmClear(false)}>
+              <button
+                type="button"
+                className="btn"
+                style={{ flex: 1 }}
+                onClick={() => setConfirmClear(false)}
+              >
                 Cancel
               </button>
-              <button type="button" className="btn btn-danger" style={{ flex: 1 }} onClick={() => void wipe()}>
+              <button
+                type="button"
+                className="btn btn-danger"
+                style={{ flex: 1 }}
+                onClick={() => void wipe()}
+              >
                 Delete everything
               </button>
             </div>
           </div>
         ) : (
-          <button type="button" className="btn btn-danger btn-block" onClick={() => setConfirmClear(true)}>
+          <button
+            type="button"
+            className="btn btn-danger btn-block"
+            onClick={() => setConfirmClear(true)}
+          >
             <TrashIcon />
             Delete all data
           </button>

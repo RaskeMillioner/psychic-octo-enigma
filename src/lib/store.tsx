@@ -30,7 +30,14 @@ const DataContext = createContext<DataStore | null>(null);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [wines, setWines] = useState<CellarWine[]>([]);
   const [diary, setDiary] = useState<DiaryEntry[]>([]);
-  const [settings, setSettings] = useState<Settings>({ apiKey: '', currency: 'EUR' });
+  const [settings, setSettings] = useState<Settings>(() => ({
+    scanProvider: 'claude',
+    apiKey: '',
+    claudeModel: 'claude-opus-5',
+    geminiApiKey: '',
+    geminiModel: 'gemini-flash-latest',
+    currency: 'EUR',
+  }));
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {

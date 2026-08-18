@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { appellationPatch, describePatch, findAppellation, suggestAppellations } from '../lib/appellation';
 import { parseGrapes } from '../lib/format';
 import { useData } from '../lib/store';
 import { BOTTLE_SIZES, WINE_TYPES, type WineFacts } from '../types';
@@ -36,6 +37,24 @@ interface Props {
 
 export const WineFactsFields = ({ value, onChange }: Props) => {
   const suggestions = useSuggestions();
+  const [appellationHint, setAppellationHint] = useState('');
+
+  /**
+   * The appellation is the most informative thing on a European label, so
+   * recognising it fills the blanks around it — never overwriting anything
+   * already entered.
+   */
+  const handleAppellation = (input: string) => {
+    const match = findAppellation(input);
+    if (!match) {
+      onChange({ appellation: input });
+      setAppellationHint('');
+      return;
+    }
+    const patch = appellationPatch(value, match);
+    onChange({ appellation: input, ...patch });
+    setAppellationHint(describePatch(patch));
+  };
 
   return (
     <div className="stack">
@@ -106,15 +125,20 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
       <DataList id="countries" options={suggestions.countries} />
       <DataList id="regions" options={suggestions.regions} />
 
-      <Field label="Appellation">
+      <Field label="Appellation" hint={appellationHint}>
         <input
           list="appellations"
           value={value.appellation}
           placeholder="Puligny-Montrachet 1er Cru"
-          onChange={(event) => onChange({ appellation: event.target.value })}
+          onChange={(event) => handleAppellation(event.target.value)}
         />
       </Field>
-      <DataList id="appellations" options={suggestions.appellations} />
+      <DataList
+        id="appellations"
+        options={[
+          ...new Set([...suggestAppellations(value.appellation), ...suggestions.appellations]),
+        ]}
+      />
 
       <Field label="Classification">
         <input

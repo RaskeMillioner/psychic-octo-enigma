@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { appellationPatch, findAppellation } from '../lib/appellation';
 import { resolvePhotoBlob, type PhotoRef } from '../lib/photos';
-import { scanLabel, type ScanResult } from '../lib/scan';
+import { PROVIDER_LABELS, providerKey, resolveProvider, scanLabel, type ScanOutcome } from '../lib/scan';
 import { useData } from '../lib/store';
 import type { WineFacts } from '../types';
 import { SparkleIcon } from './icons';
@@ -17,13 +18,16 @@ interface Props {
 
 /**
  * Label photo + "read the label" action. Capturing a photo starts the scan
- * automatically when an API key is configured; everything stays editable.
+ * automatically when a key is configured; everything stays editable.
  */
 export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
-  const { settings } = useData();
+  const { settings, updateSettings } = useData();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState<ScanResult | null>(null);
+  const [result, setResult] = useState<ScanOutcome | null>(null);
+
+  const provider = resolveProvider(settings);
+  const hasKey = Boolean(providerKey(settings, provider));
 
   const run = async (blob: Blob | null) => {
     const source = blob ?? (await resolvePhotoBlob(photo));
@@ -35,9 +39,21 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
     setError('');
     setResult(null);
     try {
-      const scan = await scanLabel(source, settings.apiKey);
+      const scan = await scanLabel(source, settings);
+
+      // Gemini corrects a stale model id for us — remember what actually worked.
+      if (scan.usedModel && scan.usedModel !== settings.geminiModel) {
+        await updateSettings({ ...settings, geminiModel: scan.usedModel });
+      }
+
+      // Anything the model left blank that the appellation implies.
+      const match = findAppellation(scan.facts.appellation);
+      const facts = match
+        ? { ...scan.facts, ...appellationPatch(scan.facts, match) }
+        : scan.facts;
+
       setResult(scan);
-      onFacts(scan.facts);
+      onFacts(facts);
     } catch (scanError) {
       setError(scanError instanceof Error ? scanError.message : 'Scanning failed.');
     } finally {
@@ -56,7 +72,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
           setError('');
         }}
         onCapture={(blob) => {
-          if (settings.apiKey) void run(blob);
+          if (hasKey) void run(blob);
         }}
       />
 
@@ -67,13 +83,14 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
         onClick={() => void run(null)}
       >
         {busy ? <Spinner /> : <SparkleIcon />}
-        {busy ? 'Reading the label…' : 'Read label & fill in details'}
+        {busy ? `Reading the label with ${provider === 'gemini' ? 'Gemini' : 'Claude'}…` : 'Read label & fill in details'}
       </button>
 
-      {!settings.apiKey ? (
+      {!hasKey ? (
         <Banner>
-          Label scanning needs an Anthropic API key. Add one in <Link to="/settings">Settings</Link>,
-          or fill the fields in by hand.
+          Label scanning needs a key for {PROVIDER_LABELS[provider]}. Add one in{' '}
+          <Link to="/settings">Settings</Link> — Gemini has a free tier — or fill the fields in by
+          hand. Typing the appellation fills the region and grapes on its own.
         </Banner>
       ) : null}
 
