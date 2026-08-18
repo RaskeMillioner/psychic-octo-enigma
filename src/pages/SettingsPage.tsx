@@ -211,9 +211,11 @@ export const SettingsPage = () => {
               />
             </Field>
 
-            <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
-              {showKey ? 'Hide key' : 'Show key'}
-            </button>
+            <div className="row">
+              <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
+                {showKey ? 'Hide key' : 'Show key'}
+              </button>
+            </div>
           </div>
         )}
 

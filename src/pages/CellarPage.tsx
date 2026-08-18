@@ -135,9 +135,9 @@ export const CellarPage = () => {
             {visible.length === 1 ? 'wine' : 'wines'}
           </span>
           <select
+            className="select-compact"
             value={sort}
             onChange={(event) => setSort(event.target.value as SortKey)}
-            style={{ width: 'auto', minHeight: 34, padding: '5px 30px 5px 10px', fontSize: 13 }}
           >
             {SORTS.map((option) => (
               <option key={option.key} value={option.key}>
