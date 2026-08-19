@@ -24,6 +24,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
   const { settings, updateSettings } = useData();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
   const [result, setResult] = useState<ScanOutcome | null>(null);
 
   const provider = resolveProvider(settings);
@@ -37,6 +38,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
     }
     setBusy(true);
     setError('');
+    setCopied(false);
     setResult(null);
     try {
       const scan = await scanLabel(source, settings);
@@ -94,13 +96,35 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
         </Banner>
       ) : null}
 
-      {error ? <Banner tone="error">{error}</Banner> : null}
+      {error ? (
+        <Banner tone="error">
+          {error}
+          {navigator.clipboard ? (
+            <div style={{ marginTop: 9 }}>
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  void navigator.clipboard.writeText(error).then(
+                    () => setCopied(true),
+                    () => setCopied(false),
+                  );
+                }}
+              >
+                {copied ? 'Copied' : 'Copy details'}
+              </button>
+            </div>
+          ) : null}
+        </Banner>
+      ) : null}
 
       {result ? (
         <Banner tone={result.confidence === 'low' || !result.isWineLabel ? 'info' : 'success'}>
           {!result.isWineLabel
             ? "That doesn't look like a wine label — check the fields below carefully."
-            : `Identified with ${result.confidence} confidence. ${result.notes}`}
+            : `Identified with ${result.confidence} confidence${
+                result.usedModel ? ` by ${result.usedModel}` : ''
+              }. ${result.notes}`}
         </Banner>
       ) : null}
     </div>

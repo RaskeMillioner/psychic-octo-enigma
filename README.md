@@ -51,7 +51,7 @@ wine database, so confirm the details on obscure bottles.
 
 | Provider | Cost | Notes |
 | --- | --- | --- |
-| **Gemini** (`gemini-flash-latest`) | Free tier, no card | Rate limited. Google's free-tier terms permit using what you send to improve their models — that includes your label photos. Key from aistudio.google.com/apikey. |
+| **Gemini** (`gemini-flash-latest`) | Free tier, no card | Rate limited, and free-tier quota varies by model and region — a model with no free allowance answers 429 immediately, so the app reports Google's own wording and steps to another model once. Google's free-tier terms permit using what you send to improve their models, label photos included. Key from aistudio.google.com/apikey. |
 | **Claude** (`claude-opus-5`) | Pay per scan, roughly a few cents a label | No training on your data. Key from console.anthropic.com. |
 
 Both are called directly from the browser with plain `fetch`/SDK calls; keys are stored

@@ -1,5 +1,5 @@
-import { WINE_TYPES } from '../types';
-import { blobToBase64 } from './image';
+import { WINE_TYPES } from '../types.ts';
+import { blobToBase64 } from './image.ts';
 import {
   FIELD_DESCRIPTIONS as D,
   normaliseConfidence,
@@ -77,7 +77,7 @@ export interface GeminiModel {
 /** Models the user's own key can call, so nobody has to guess a model name. */
 export const listGeminiModels = async (apiKey: string): Promise<GeminiModel[]> => {
   const response = await fetch(`${BASE}/models?pageSize=200&key=${encodeURIComponent(apiKey)}`);
-  if (!response.ok) throw new Error(await describeHttpError(response));
+  if (!response.ok) throw new Error(describeError(await readError(response), 'the model list'));
   const body = (await response.json()) as {
     models?: { name?: string; displayName?: string; supportedGenerationMethods?: string[] }[];
   };
@@ -91,40 +91,97 @@ export const listGeminiModels = async (apiKey: string): Promise<GeminiModel[]> =
     .sort((a, b) => a.id.localeCompare(b.id));
 };
 
-/** Picks a sensible free-tier default from whatever the key can actually reach. */
-const pickFallbackModel = (models: GeminiModel[]): string | null => {
-  const flash = models.filter(
-    (model) => model.id.includes('flash') && !model.id.includes('image') && !model.id.includes('tts'),
-  );
-  // Newest first — model ids sort lexically close enough for "2.5" < "3.5".
-  const preferred = [...flash].sort((a, b) => b.id.localeCompare(a.id))[0];
-  return preferred?.id ?? models[0]?.id ?? null;
+/**
+ * Ids that exist on the models list but are wrong for scanning a label: preview
+ * and experimental builds routinely carry no free-tier quota (a 429 the moment
+ * you call them), and the rest are not text-out vision models at all.
+ */
+const UNSUITABLE = /(preview|experimental|[-.]exp\b|thinking|live|image|audio|tts|embedding|imagen|veo|learnlm|gemma)/i;
+
+/** Higher is better: a stable `-latest` alias first, then the newest version. */
+const modelScore = (id: string): number => {
+  if (/-latest$/.test(id)) return 1000;
+  const version = id.match(/(\d+)(?:[.-](\d+))?/);
+  return version ? Number(version[1]) * 10 + Number(version[2] ?? 0) : 0;
 };
 
-const describeHttpError = async (response: Response): Promise<string> => {
-  let detail = '';
+/**
+ * Chooses a model to scan with from whatever the key can actually reach.
+ * Exported for testing: which id this returns decides whether a scan works at
+ * all, and the wrong pick fails with a quota error that looks like throttling.
+ */
+export const selectScanModel = (models: GeminiModel[], exclude: string[] = []): string | null => {
+  const usable = models.filter(
+    (model) => !exclude.includes(model.id) && !UNSUITABLE.test(model.id),
+  );
+  const flash = usable.filter((model) => model.id.includes('flash'));
+  const pool = flash.length ? flash : usable;
+  const best = [...pool].sort(
+    (a, b) =>
+      modelScore(b.id) - modelScore(a.id) ||
+      a.id.length - b.id.length ||
+      a.id.localeCompare(b.id),
+  )[0];
+  return best?.id ?? null;
+};
+
+interface GeminiError {
+  status: number;
+  /** Google's own explanation — the part that says whether a 429 will ever clear. */
+  message: string;
+  /** Seconds Google asked us to wait, when it said so. */
+  retryDelay: string;
+  /** True when the quota is structurally zero rather than momentarily spent. */
+  exhausted: boolean;
+}
+
+/** Exported for tests: how a 429 is worded decides what the user does next. */
+export const readError = async (response: Response): Promise<GeminiError> => {
+  let message = '';
+  let retryDelay = '';
+  let raw = '';
   try {
-    const body = (await response.json()) as { error?: { message?: string } };
-    detail = body.error?.message ?? '';
+    raw = await response.text();
+    const body = JSON.parse(raw) as {
+      error?: { message?: string; details?: { retryDelay?: string }[] };
+    };
+    message = body.error?.message ?? '';
+    for (const detail of body.error?.details ?? []) {
+      if (typeof detail?.retryDelay === 'string') retryDelay = detail.retryDelay;
+    }
   } catch {
-    detail = '';
+    message = raw.slice(0, 300);
   }
-  switch (response.status) {
+  return {
+    status: response.status,
+    message,
+    retryDelay,
+    // Google words a zero free-tier allowance as a limit of 0 rather than a wait.
+    exhausted: /limit:?\s*0\b/i.test(message) || /"?quota_?limit_?value"?\s*[:=]\s*"?0\b/i.test(raw),
+  };
+};
+
+export const describeError = (error: GeminiError, model: string): string => {
+  const detail = error.message ? ` ${error.message}` : '';
+  switch (error.status) {
     case 400:
-      return `Google rejected the request${detail ? `: ${detail}` : '.'}`;
+      return `Google rejected the request for ${model}.${detail}`;
     case 401:
     case 403:
-      return 'That Google API key was rejected. Check it in Settings.';
+      return `That Google API key was rejected.${detail}`;
     case 404:
-      return `That Gemini model is not available to your key${detail ? `: ${detail}` : '.'}`;
+      return `${model} is not available to your key.${detail}`;
     case 429:
-      return 'Gemini free-tier limit reached. Wait a little and scan again.';
+      if (error.exhausted) {
+        return `${model} has no free-tier quota left for your key — this one will not clear by waiting. Open Settings, tap Load models and pick a different model, or switch to Claude.${detail}`;
+      }
+      return `Gemini rate-limited ${model}${error.retryDelay ? `; retry in ${error.retryDelay}` : ' — wait a moment and scan again'}.${detail}`;
     default:
-      return `Gemini returned an error (${response.status})${detail ? `: ${detail}` : '.'}`;
+      return `Gemini returned an error (${error.status}) for ${model}.${detail}`;
   }
 };
 
-const requestBody = (data: string) => ({
+const requestBody = (data: string, disableThinking: boolean) => ({
   systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
   contents: [
     {
@@ -135,7 +192,11 @@ const requestBody = (data: string) => ({
   generationConfig: {
     responseMimeType: 'application/json',
     responseSchema: RESPONSE_SCHEMA,
-    maxOutputTokens: 4096,
+    // Flash models reason by default and spend maxOutputTokens doing it, which
+    // can exhaust the budget before any JSON is written. Turn it off for what is
+    // an extraction task, and leave room even so.
+    ...(disableThinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+    maxOutputTokens: 8192,
   },
 });
 
@@ -147,20 +208,18 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
-const callGemini = async (model: string, apiKey: string, data: string) => {
-  const response = await fetch(
+const callGemini = (model: string, apiKey: string, data: string, disableThinking: boolean) =>
+  fetch(
     `${BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(requestBody(data)),
+      body: JSON.stringify(requestBody(data, disableThinking)),
     },
   );
-  return response;
-};
 
 export interface GeminiScanOutcome extends ScanResult {
-  /** The model that actually answered — may differ if the configured one was gone. */
+  /** The model that actually answered — may differ from the configured one. */
   usedModel: string;
 }
 
@@ -173,38 +232,71 @@ export const scanWithGemini = async (
   if (!apiKey) throw new Error('Add your Google AI Studio key in Settings to scan labels.');
 
   const data = await blobToBase64(photo);
+  const tried: string[] = [];
+
+  const call = async (candidate: string, disableThinking = true) => {
+    tried.push(candidate);
+    try {
+      return await callGemini(candidate, apiKey, data, disableThinking);
+    } catch {
+      throw new Error('Could not reach the Gemini API. Check your connection and try again.');
+    }
+  };
 
   let usedModel = model.trim() || 'gemini-flash-latest';
-  let response: Response;
-  try {
-    response = await callGemini(usedModel, apiKey, data);
-  } catch {
-    throw new Error('Could not reach the Gemini API. Check your connection and try again.');
-  }
+  let response = await call(usedModel);
 
-  // A missing or renamed model is the one failure we can fix without the user:
-  // ask the key which models it has and retry once with the best free one.
-  if (response.status === 404) {
+  // A model that is missing, or that carries no free quota, is worth stepping
+  // past once: ask the key what it can reach and try the best remaining option.
+  if (response.status === 404 || response.status === 429) {
+    const first = await readError(response);
     const models = await listGeminiModels(apiKey).catch(() => [] as GeminiModel[]);
-    const fallback = pickFallbackModel(models);
-    if (!fallback || fallback === usedModel) throw new Error(await describeHttpError(response));
-    usedModel = fallback;
-    response = await callGemini(usedModel, apiKey, data);
+    const alternative = selectScanModel(models, tried);
+
+    if (!alternative) throw new Error(describeError(first, usedModel));
+
+    const previous = usedModel;
+    usedModel = alternative;
+    response = await call(alternative);
+
+    if (!response.ok) {
+      const second = await readError(response);
+      throw new Error(
+        `${describeError(first, previous)} Also tried ${alternative}: ${describeError(second, alternative)}`,
+      );
+    }
   }
 
-  if (!response.ok) throw new Error(await describeHttpError(response));
+  // Some models refuse a zero thinking budget outright; retry without it.
+  if (response.status === 400) {
+    const rejected = await readError(response);
+    if (/thinking/i.test(rejected.message)) {
+      response = await call(usedModel, false);
+    } else {
+      throw new Error(describeError(rejected, usedModel));
+    }
+  }
+
+  if (!response.ok) throw new Error(describeError(await readError(response), usedModel));
 
   const body = (await response.json()) as GeminiResponse;
 
   if (body.promptFeedback?.blockReason) {
-    throw new Error('Gemini blocked that image. Try a clearer photo of the label.');
+    throw new Error(
+      `Gemini blocked that image (${body.promptFeedback.blockReason}). Try a clearer photo of the label.`,
+    );
   }
 
   const candidate = body.candidates?.[0];
   if (candidate?.finishReason === 'MAX_TOKENS') {
-    throw new Error('Gemini ran out of room before finishing. Try again.');
+    throw new Error(
+      `${usedModel} used its whole output budget before answering. Pick a different model in Settings.`,
+    );
   }
-  if (candidate?.finishReason && !['STOP', 'FINISH_REASON_UNSPECIFIED'].includes(candidate.finishReason)) {
+  if (
+    candidate?.finishReason &&
+    !['STOP', 'FINISH_REASON_UNSPECIFIED'].includes(candidate.finishReason)
+  ) {
     throw new Error(`Gemini stopped early (${candidate.finishReason}). Try a different photo.`);
   }
 
