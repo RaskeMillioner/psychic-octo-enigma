@@ -36,6 +36,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     claudeModel: 'claude-opus-5',
     geminiApiKey: '',
     geminiModel: 'gemini-flash-latest',
+    webLookup: true,
     currency: 'EUR',
   }));
   const [loading, setLoading] = useState(true);

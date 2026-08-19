@@ -1,7 +1,10 @@
 import { WINE_TYPES } from '../types.ts';
 import { blobToBase64 } from './image.ts';
 import {
+  FIELD_ORIGINS,
   FIELD_DESCRIPTIONS as D,
+  PROVENANCE_KEYS,
+  toProvenance,
   normaliseConfidence,
   SYSTEM_PROMPT,
   toFacts,
@@ -33,6 +36,14 @@ const RESPONSE_SCHEMA = {
     sizeMl: { type: 'STRING', description: D.sizeMl },
     confidence: { type: 'STRING', enum: ['high', 'medium', 'low'], description: D.confidence },
     notes: { type: 'STRING', description: D.notes },
+    fields: {
+      type: 'OBJECT',
+      description: D.fields,
+      properties: Object.fromEntries(
+        PROVENANCE_KEYS.map((key) => [key, { type: 'STRING', enum: [...FIELD_ORIGINS] }]),
+      ),
+      required: [...PROVENANCE_KEYS],
+    },
   },
   required: [
     'isWineLabel',
@@ -49,6 +60,7 @@ const RESPONSE_SCHEMA = {
     'sizeMl',
     'confidence',
     'notes',
+    'fields',
   ],
   propertyOrdering: [
     'isWineLabel',
@@ -65,6 +77,7 @@ const RESPONSE_SCHEMA = {
     'sizeMl',
     'confidence',
     'notes',
+    'fields',
   ],
 };
 
@@ -181,8 +194,14 @@ export const describeError = (error: GeminiError, model: string): string => {
   }
 };
 
-const requestBody = (data: string, disableThinking: boolean) => ({
+/**
+ * Grounding with Google Search alongside a response schema is supported from
+ * Gemini 3 on; older models reject the combination, which `scanWithGemini`
+ * recovers from by retrying without the tool.
+ */
+const requestBody = (data: string, disableThinking: boolean, webLookup: boolean) => ({
   systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+  ...(webLookup ? { tools: [{ googleSearch: {} }] } : {}),
   contents: [
     {
       role: 'user',
@@ -208,15 +227,36 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
-const callGemini = (model: string, apiKey: string, data: string, disableThinking: boolean) =>
+const callGemini = (
+  model: string,
+  apiKey: string,
+  data: string,
+  disableThinking: boolean,
+  webLookup: boolean,
+) =>
   fetch(
     `${BASE}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(requestBody(data, disableThinking)),
+      body: JSON.stringify(requestBody(data, disableThinking, webLookup)),
     },
   );
+
+/**
+ * Grounded answers sometimes arrive with prose or a code fence wrapped around
+ * the JSON, so take the outermost object rather than insisting on a clean body.
+ */
+export const parseJsonLoosely = (raw: string): unknown => {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start === -1 || end <= start) throw new Error('no JSON object in the response');
+    return JSON.parse(raw.slice(start, end + 1));
+  }
+};
 
 export interface GeminiScanOutcome extends ScanResult {
   /** The model that actually answered — may differ from the configured one. */
@@ -228,16 +268,18 @@ export const scanWithGemini = async (
   photo: Blob,
   apiKey: string,
   model: string,
+  webLookup: boolean,
 ): Promise<GeminiScanOutcome> => {
   if (!apiKey) throw new Error('Add your Google AI Studio key in Settings to scan labels.');
 
   const data = await blobToBase64(photo);
   const tried: string[] = [];
+  let searching = webLookup;
 
   const call = async (candidate: string, disableThinking = true) => {
-    tried.push(candidate);
+    if (!tried.includes(candidate)) tried.push(candidate);
     try {
-      return await callGemini(candidate, apiKey, data, disableThinking);
+      return await callGemini(candidate, apiKey, data, disableThinking, searching);
     } catch {
       throw new Error('Could not reach the Gemini API. Check your connection and try again.');
     }
@@ -267,10 +309,15 @@ export const scanWithGemini = async (
     }
   }
 
-  // Some models refuse a zero thinking budget outright; retry without it.
+  // Two 400s are worth recovering from rather than reporting: a model that
+  // refuses a zero thinking budget, and one too old to combine search grounding
+  // with a response schema.
   if (response.status === 400) {
     const rejected = await readError(response);
-    if (/thinking/i.test(rejected.message)) {
+    if (searching && /tool|search|grounding|schema/i.test(rejected.message)) {
+      searching = false;
+      response = await call(usedModel);
+    } else if (/thinking/i.test(rejected.message)) {
       response = await call(usedModel, false);
     } else {
       throw new Error(describeError(rejected, usedModel));
@@ -303,7 +350,7 @@ export const scanWithGemini = async (
   const raw = candidate?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
   let reading: LabelReading;
   try {
-    reading = JSON.parse(raw) as LabelReading;
+    reading = parseJsonLoosely(raw) as LabelReading;
   } catch {
     throw new Error("Couldn't read anything usable from that photo. Try again in better light.");
   }
@@ -313,6 +360,8 @@ export const scanWithGemini = async (
     confidence: normaliseConfidence(reading.confidence),
     notes: typeof reading.notes === 'string' ? reading.notes : '',
     isWineLabel: reading.isWineLabel !== false,
+    provenance: toProvenance(reading.fields),
+    searched: searching,
     usedModel,
   };
 };

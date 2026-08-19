@@ -101,6 +101,8 @@ export interface Settings {
   /** Google AI Studio key — Gemini has a no-cost free tier. */
   geminiApiKey: string;
   geminiModel: string;
+  /** Let the model search the web for the bottle, not just read the label. */
+  webLookup: boolean;
   /** Default currency for new purchases. */
   currency: string;
 }

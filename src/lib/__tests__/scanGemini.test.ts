@@ -106,3 +106,44 @@ test('a non-JSON error body still produces something readable', async () => {
   const error = await readError(new Response('<html>502 Bad Gateway</html>', { status: 502 }));
   assert.match(describeError(error, 'gemini-2.5-flash'), /error \(502\)/);
 });
+
+/* --------------------------------------------------- provenance & parsing */
+
+import { forgetTouched, toProvenance } from '../labelFields.ts';
+import { parseJsonLoosely } from '../scanGemini.ts';
+
+test('provenance keeps reported origins and drops the rest', () => {
+  const provenance = toProvenance({
+    producer: 'label',
+    country: 'web',
+    grapes: 'knowledge',
+    vintage: 'guess',
+    region: 'none',
+    classification: 'nonsense',
+    notAField: 'label',
+  });
+  assert.deepEqual(provenance, {
+    producer: 'label',
+    country: 'web',
+    grapes: 'knowledge',
+    vintage: 'guess',
+  });
+});
+
+test('provenance survives a missing or malformed fields object', () => {
+  assert.deepEqual(toProvenance(undefined), {});
+  assert.deepEqual(toProvenance('nope'), {});
+});
+
+test('editing a field forgets where the model got its value', () => {
+  const provenance = toProvenance({ producer: 'label', grapes: 'guess' });
+  assert.deepEqual(forgetTouched(provenance, { grapes: ['Syrah'] }), { producer: 'label' });
+  assert.deepEqual(forgetTouched(provenance, { quantity: 3 }), provenance);
+});
+
+test('a grounded answer wrapped in prose or a code fence still parses', () => {
+  assert.deepEqual(parseJsonLoosely('{"a":1}'), { a: 1 });
+  assert.deepEqual(parseJsonLoosely('```json\n{"a":1}\n```'), { a: 1 });
+  assert.deepEqual(parseJsonLoosely('Here is the wine:\n{"a":1}\nHope that helps.'), { a: 1 });
+  assert.throws(() => parseJsonLoosely('no object here'));
+});

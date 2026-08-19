@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { WINE_TYPES } from '../types';
-import { CONFIDENCE_LEVELS, FIELD_DESCRIPTIONS as D } from './labelFields.ts';
+import { CONFIDENCE_LEVELS, FIELD_DESCRIPTIONS as D, FIELD_ORIGINS } from './labelFields.ts';
+
+const origin = z.enum(FIELD_ORIGINS);
 
 /** The Claude structured-output schema. Field meanings live in labelFields.ts. */
 export const LabelSchema = z.object({
@@ -18,4 +20,19 @@ export const LabelSchema = z.object({
   sizeMl: z.string().describe(D.sizeMl),
   confidence: z.enum(CONFIDENCE_LEVELS).describe(D.confidence),
   notes: z.string().describe(D.notes),
+  fields: z
+    .object({
+      producer: origin,
+      name: origin,
+      country: origin,
+      region: origin,
+      appellation: origin,
+      grapes: origin,
+      vintage: origin,
+      classification: origin,
+      wineType: origin,
+      abv: origin,
+      sizeMl: origin,
+    })
+    .describe(D.fields),
 });

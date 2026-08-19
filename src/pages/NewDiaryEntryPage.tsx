@@ -8,6 +8,7 @@ import { Banner, Spinner } from '../components/ui';
 import { WineFactsFields } from '../components/WineFactsFields';
 import { createDiaryEntry } from '../lib/db';
 import { todayIso } from '../lib/format';
+import { forgetTouched, type Provenance } from '../lib/labelFields';
 import { commitPhoto, type PhotoRef } from '../lib/photos';
 import { useData } from '../lib/store';
 import { emptyWineFacts, type WineFacts } from '../types';
@@ -17,6 +18,7 @@ export const NewDiaryEntryPage = () => {
   const { settings, reload } = useData();
   const navigate = useNavigate();
   const [facts, setFacts] = useState<WineFacts>(emptyWineFacts());
+  const [provenance, setProvenance] = useState<Provenance>({});
   const [photo, setPhoto] = useState<PhotoRef>(null);
   const [details, setDetails] = useState<DiaryDetails>({
     drunkOn: todayIso(),
@@ -56,14 +58,21 @@ export const NewDiaryEntryPage = () => {
         <LabelScanner
           photo={photo}
           onPhotoChange={setPhoto}
-          onFacts={(scanned) => setFacts((current) => ({ ...current, ...scanned }))}
+          onFacts={(scanned, origins) => {
+            setFacts((current) => ({ ...current, ...scanned }));
+            setProvenance(origins);
+          }}
         />
 
         <section>
           <h2 className="section-title">Wine</h2>
           <WineFactsFields
             value={facts}
-            onChange={(patch) => setFacts((current) => ({ ...current, ...patch }))}
+            provenance={provenance}
+            onChange={(patch) => {
+              setFacts((current) => ({ ...current, ...patch }));
+              setProvenance((current) => forgetTouched(current, patch));
+            }}
           />
         </section>
 

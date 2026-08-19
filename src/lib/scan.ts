@@ -38,11 +38,21 @@ export const scanLabel = async (photo: Blob, settings: Settings): Promise<ScanOu
 
   if (provider === 'gemini') {
     const { scanWithGemini } = await import('./scanGemini.ts');
-    const outcome = await scanWithGemini(photo, settings.geminiApiKey, settings.geminiModel);
+    const outcome = await scanWithGemini(
+      photo,
+      settings.geminiApiKey,
+      settings.geminiModel,
+      settings.webLookup,
+    );
     return { ...outcome, provider };
   }
 
   const { scanWithClaude } = await import('./scanClaude.ts');
-  const result = await scanWithClaude(photo, settings.apiKey, settings.claudeModel);
+  const result = await scanWithClaude(
+    photo,
+    settings.apiKey,
+    settings.claudeModel,
+    settings.webLookup,
+  );
   return { ...result, provider };
 };

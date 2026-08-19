@@ -4,20 +4,19 @@ import { StarIcon } from './icons';
 export const Field = ({
   label,
   hint,
+  /** 'warn' flags a value the model was unsure about, for the user to check. */
+  tone,
   children,
 }: {
   label: string;
   hint?: string;
+  tone?: 'warn';
   children: ReactNode;
 }) => (
-  <label className="field">
+  <label className={`field${tone === 'warn' ? ' field-warn' : ''}`}>
     <span className="field-label">{label}</span>
     {children}
-    {hint ? (
-      <span className="tiny faint" style={{ display: 'block', marginTop: 4 }}>
-        {hint}
-      </span>
-    ) : null}
+    {hint ? <span className={`tiny field-hint${tone === 'warn' ? ' warn' : ''}`}>{hint}</span> : null}
   </label>
 );
 

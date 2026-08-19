@@ -44,20 +44,31 @@ after a label scan, to fill whatever the model left blank.
 
 Scanning sends the photo straight from your device to whichever provider you pick in
 **Settings**, and asks for the metadata as structured JSON, which lands in an editable
-form — nothing is saved until you press save. The model reads what is printed and fills
-the rest from what it knows about the producer and appellation, reports its confidence,
-and says what it inferred rather than read. This is the model's own knowledge, not a live
-wine database, so confirm the details on obscure bottles.
+form — nothing is saved until you press save.
+
+With **Look the wine up online** enabled (the default), the model also searches the web
+for that producer, cuvée and vintage, so it can fill in the grape blend, classification
+and alcohol a label leaves out rather than only transcribing what is printed. Grounding
+runs through Google Search on Gemini and Anthropic's web search on Claude; where a model
+is too old to combine searching with a JSON schema, the scan retries without it rather
+than failing.
+
+Every field it fills carries a note saying **where that value came from and how sure it
+is** — read off the label, found online, inferred from the appellation, or a low-confidence
+guess. Guesses are highlighted so they are the ones you check, and a note disappears as
+soon as you edit that field, because the value is then yours. The scan is still the
+model's reading rather than a wine database, so confirm the details on obscure bottles.
 
 | Provider | Cost | Notes |
 | --- | --- | --- |
-| **Gemini** (`gemini-flash-latest`) | Free tier, no card | Rate limited, and free-tier quota varies by model and region — a model with no free allowance answers 429 immediately, so the app reports Google's own wording and steps to another model once. Google's free-tier terms permit using what you send to improve their models, label photos included. Key from aistudio.google.com/apikey. |
+| **Gemini** (pick from the model dropdown) | Free tier, no card | Rate limited, and free-tier quota varies by model and region — a model with no free allowance answers 429 immediately, so the app reports Google's own wording and steps to another model once. Google's free-tier terms permit using what you send to improve their models, label photos included. Key from aistudio.google.com/apikey. |
 | **Claude** (`claude-opus-5`) | Pay per scan, roughly a few cents a label | No training on your data. Key from console.anthropic.com. |
 
 Both are called directly from the browser with plain `fetch`/SDK calls; keys are stored
-only in this browser, on this device, and go nowhere but the provider you chose. If the
-Gemini model id ever stops existing, the scanner asks your key which models it can reach
-and corrects itself.
+only in this browser, on this device, and go nowhere but the provider you chose. The
+Gemini model is chosen from a dropdown of the models your own key can reach, and if the
+configured one ever stops existing the scanner asks the key what it can use and corrects
+itself — skipping preview and experimental builds, which routinely have no free quota.
 
 Without any key, every other part of the app still works and wines are entered by hand.
 

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { forgetTouched, type Provenance } from '../lib/labelFields';
 import type { PhotoRef } from '../lib/photos';
 import type { CellarWine, WineFacts } from '../types';
 import { emptyWineFacts } from '../types';
@@ -47,12 +48,15 @@ interface Props {
 
 export const CellarWineForm = ({ initial, initialPhoto, submitLabel, onSubmit }: Props) => {
   const [values, setValues] = useState<CellarFormValues>(initial);
+  const [provenance, setProvenance] = useState<Provenance>({});
   const [photo, setPhoto] = useState<PhotoRef>(initialPhoto);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const patch = (next: Partial<CellarFormValues>) =>
+  const patch = (next: Partial<CellarFormValues>) => {
     setValues((current) => ({ ...current, ...next }));
+    setProvenance((current) => forgetTouched(current, next));
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -75,19 +79,20 @@ export const CellarWineForm = ({ initial, initialPhoto, submitLabel, onSubmit }:
       <LabelScanner
         photo={photo}
         onPhotoChange={setPhoto}
-        onFacts={(facts) =>
+        onFacts={(facts, scanned) => {
           setValues((current) => ({
             ...current,
             ...facts,
             // Keep a size the user already chose if the label didn't state one.
             sizeMl: facts.sizeMl || current.sizeMl,
-          }))
-        }
+          }));
+          setProvenance(scanned);
+        }}
       />
 
       <section>
         <h2 className="section-title">Wine</h2>
-        <WineFactsFields value={values} onChange={patch} />
+        <WineFactsFields value={values} onChange={patch} provenance={provenance} />
       </section>
 
       <section>

@@ -33,6 +33,29 @@ export const SettingsPage = () => {
 
   useEffect(() => setDraft(settings), [settings]);
 
+  // The dropdown is only useful once it has options, so fetch them as soon as
+  // there is a saved key to ask with.
+  useEffect(() => {
+    if (settings.scanProvider !== 'gemini' || !settings.geminiApiKey) return;
+    let cancelled = false;
+    setLoadingModels(true);
+    listGeminiModels(settings.geminiApiKey)
+      .then((available) => {
+        if (!cancelled) setModels(available);
+      })
+      .catch(() => {
+        // Nobody asked for this fetch, so a failure stays quiet — pressing
+        // "Load models" reports properly.
+        if (!cancelled) setModels([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingModels(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.scanProvider, settings.geminiApiKey]);
+
   useEffect(() => {
     void navigator.storage?.estimate?.().then((estimate) => {
       if (estimate?.usage) setUsage(formatBytes(estimate.usage));
@@ -143,22 +166,29 @@ export const SettingsPage = () => {
               />
             </Field>
 
-            <Field label="Model" hint="Left alone, the app picks a working model for your key.">
-              <input
-                list="gemini-models"
+            <Field
+              label="Model"
+              hint={
+                models.length
+                  ? `${models.length} models your key can use.`
+                  : 'Save your key, then load the models it can use.'
+              }
+            >
+              <select
                 value={draft.geminiModel}
-                placeholder="gemini-flash-latest"
-                spellCheck={false}
                 onChange={(event) => patch({ geminiModel: event.target.value })}
-              />
+              >
+                {/* Whatever is configured stays selectable even before the list loads. */}
+                {models.every((model) => model.id !== draft.geminiModel) && draft.geminiModel ? (
+                  <option value={draft.geminiModel}>{draft.geminiModel}</option>
+                ) : null}
+                {models.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.label === model.id ? model.id : `${model.label} — ${model.id}`}
+                  </option>
+                ))}
+              </select>
             </Field>
-            <datalist id="gemini-models">
-              {models.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.label}
-                </option>
-              ))}
-            </datalist>
 
             <div className="row">
               <button
@@ -168,14 +198,11 @@ export const SettingsPage = () => {
                 onClick={() => void loadModels()}
               >
                 {loadingModels ? <Spinner /> : null}
-                Load models
+                {models.length ? 'Refresh models' : 'Load models'}
               </button>
               <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
                 {showKey ? 'Hide key' : 'Show key'}
               </button>
-              {models.length ? (
-                <span className="tiny faint">{models.length} available</span>
-              ) : null}
             </div>
 
             {modelsError ? <Banner tone="error">{modelsError}</Banner> : null}
@@ -218,6 +245,23 @@ export const SettingsPage = () => {
             </div>
           </div>
         )}
+
+        <label className="toggle" style={{ marginTop: 14 }}>
+          <input
+            type="checkbox"
+            checked={draft.webLookup}
+            onChange={(event) => patch({ webLookup: event.target.checked })}
+          />
+          <span className="toggle-text">
+            <strong>Look the wine up online</strong>
+            <span className="tiny faint">
+              The model searches the web for the producer, cuvée and vintage, so it can fill in the
+              grape blend and classification a label leaves out — instead of only reading what is
+              printed. Slower, and each scan uses a search: on Gemini that draws on the free
+              grounding allowance, on Claude it is billed per search.
+            </span>
+          </span>
+        </label>
 
         <p className="tiny faint" style={{ marginTop: 10 }}>
           Keys are stored only in this browser, on this device, and are sent only to the provider

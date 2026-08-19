@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { appellationPatch, findAppellation } from '../lib/appellation';
+import type { Provenance, ProvenanceKey } from '../lib/labelFields';
 import { resolvePhotoBlob, type PhotoRef } from '../lib/photos';
 import { PROVIDER_LABELS, providerKey, resolveProvider, scanLabel, type ScanOutcome } from '../lib/scan';
 import { useData } from '../lib/store';
@@ -12,8 +13,8 @@ import { Banner, Spinner } from './ui';
 interface Props {
   photo: PhotoRef;
   onPhotoChange: (ref: PhotoRef) => void;
-  /** Receives the metadata read off the label, to merge into the form. */
-  onFacts: (facts: WineFacts) => void;
+  /** Receives the metadata read off the label, and where each field came from. */
+  onFacts: (facts: WineFacts, provenance: Provenance) => void;
 }
 
 /**
@@ -50,12 +51,15 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
 
       // Anything the model left blank that the appellation implies.
       const match = findAppellation(scan.facts.appellation);
-      const facts = match
-        ? { ...scan.facts, ...appellationPatch(scan.facts, match) }
-        : scan.facts;
+      const patch = match ? appellationPatch(scan.facts, match) : {};
+      const facts = { ...scan.facts, ...patch };
+
+      // Fields the reference list supplied are inferred, not read or found.
+      const provenance: Provenance = { ...scan.provenance };
+      for (const key of Object.keys(patch) as ProvenanceKey[]) provenance[key] = 'knowledge';
 
       setResult(scan);
-      onFacts(facts);
+      onFacts(facts, provenance);
     } catch (scanError) {
       setError(scanError instanceof Error ? scanError.message : 'Scanning failed.');
     } finally {
@@ -124,7 +128,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
             ? "That doesn't look like a wine label — check the fields below carefully."
             : `Identified with ${result.confidence} confidence${
                 result.usedModel ? ` by ${result.usedModel}` : ''
-              }. ${result.notes}`}
+              }${result.searched ? ', with a web lookup' : ''}. ${result.notes}`}
         </Banner>
       ) : null}
     </div>

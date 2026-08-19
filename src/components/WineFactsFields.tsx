@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { appellationPatch, describePatch, findAppellation, suggestAppellations } from '../lib/appellation';
 import { parseGrapes } from '../lib/format';
+import { ORIGIN_LABELS, type Provenance, type ProvenanceKey } from '../lib/labelFields';
 import { useData } from '../lib/store';
 import { BOTTLE_SIZES, WINE_TYPES, type WineFacts } from '../types';
 import { Field } from './ui';
@@ -33,11 +34,24 @@ const DataList = ({ id, options }: { id: string; options: string[] }) => (
 interface Props {
   value: WineFacts;
   onChange: (patch: Partial<WineFacts>) => void;
+  /** Where each scanned value came from — drives the note under each field. */
+  provenance?: Provenance;
 }
 
-export const WineFactsFields = ({ value, onChange }: Props) => {
+export const WineFactsFields = ({ value, onChange, provenance }: Props) => {
   const suggestions = useSuggestions();
   const [appellationHint, setAppellationHint] = useState('');
+
+  /**
+   * A field the model filled carries its own note; anything it did not touch
+   * falls back to the field's ordinary hint.
+   */
+  const noteFor = (key: ProvenanceKey, fallback?: string) => {
+    const origin = provenance?.[key];
+    const entry = origin ? ORIGIN_LABELS[origin] : undefined;
+    if (entry?.note) return { hint: entry.note, tone: entry.low ? ('warn' as const) : undefined };
+    return { hint: fallback };
+  };
 
   /**
    * The appellation is the most informative thing on a European label, so
@@ -58,7 +72,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
 
   return (
     <div className="stack">
-      <Field label="Producer">
+      <Field label="Producer" {...noteFor('producer')}>
         <input
           list="producers"
           value={value.producer}
@@ -68,7 +82,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
       </Field>
       <DataList id="producers" options={suggestions.producers} />
 
-      <Field label="Cuvée / wine name">
+      <Field label="Cuvée / wine name" {...noteFor('name')}>
         <input
           value={value.name}
           placeholder="Clavoillon"
@@ -77,7 +91,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
       </Field>
 
       <div className="grid-2">
-        <Field label="Vintage" hint="Leave empty for NV">
+        <Field label="Vintage" {...noteFor('vintage', 'Leave empty for NV')}>
           <input
             inputMode="numeric"
             maxLength={4}
@@ -89,7 +103,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
             }}
           />
         </Field>
-        <Field label="Type">
+        <Field label="Type" {...noteFor('wineType')}>
           <select
             value={value.wineType}
             onChange={(event) => onChange({ wineType: event.target.value as WineFacts['wineType'] })}
@@ -105,7 +119,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
       </div>
 
       <div className="grid-2">
-        <Field label="Country">
+        <Field label="Country" {...noteFor('country')}>
           <input
             list="countries"
             value={value.country}
@@ -113,7 +127,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
             onChange={(event) => onChange({ country: event.target.value })}
           />
         </Field>
-        <Field label="Region">
+        <Field label="Region" {...noteFor('region')}>
           <input
             list="regions"
             value={value.region}
@@ -125,7 +139,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
       <DataList id="countries" options={suggestions.countries} />
       <DataList id="regions" options={suggestions.regions} />
 
-      <Field label="Appellation" hint={appellationHint}>
+      <Field label="Appellation" {...noteFor('appellation', appellationHint)}>
         <input
           list="appellations"
           value={value.appellation}
@@ -140,7 +154,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
         ]}
       />
 
-      <Field label="Classification">
+      <Field label="Classification" {...noteFor('classification')}>
         <input
           list="classifications"
           value={value.classification}
@@ -150,7 +164,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
       </Field>
       <DataList id="classifications" options={suggestions.classifications} />
 
-      <Field label="Grape varieties" hint="Separate with commas">
+      <Field label="Grape varieties" {...noteFor('grapes', 'Separate with commas')}>
         <input
           value={value.grapes.join(', ')}
           placeholder="Chardonnay"
@@ -159,7 +173,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
       </Field>
 
       <div className="grid-2">
-        <Field label="Bottle size">
+        <Field label="Bottle size" {...noteFor('sizeMl')}>
           <select
             value={value.sizeMl}
             onChange={(event) => onChange({ sizeMl: Number(event.target.value) })}
@@ -174,7 +188,7 @@ export const WineFactsFields = ({ value, onChange }: Props) => {
             ) : null}
           </select>
         </Field>
-        <Field label="Alcohol %">
+        <Field label="Alcohol %" {...noteFor('abv')}>
           <input
             inputMode="decimal"
             value={value.abv ?? ''}

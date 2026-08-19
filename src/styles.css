@@ -307,6 +307,24 @@ label.field {
   display: block;
 }
 
+.field-hint {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-faint);
+}
+
+/* A value the model flagged as uncertain — the one thing worth re-reading. */
+.field-hint.warn {
+  color: var(--gold);
+}
+
+.field-warn input,
+.field-warn select,
+.field-warn textarea {
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: color-mix(in srgb, var(--gold) 7%, var(--bg-input));
+}
+
 .field-label {
   display: block;
   font-size: 12px;
@@ -336,10 +354,47 @@ textarea {
  * it exactly as tall as the text field beside it. The value centres itself in
  * the content box, so the vertical padding is not needed.
  */
-input:not([type='file']),
+input:not([type='file']):not([type='checkbox']):not([type='radio']),
 select {
   height: 46px;
   padding: 0 12px;
+}
+
+/* Checkboxes are controls, not fields — keep them out of the field sizing. */
+input[type='checkbox'],
+input[type='radio'] {
+  width: auto;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--wine-bright);
+  flex: none;
+}
+
+.toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+
+.toggle .toggle-text {
+  min-width: 0;
+}
+
+.toggle strong {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 2px;
 }
 
 textarea {
