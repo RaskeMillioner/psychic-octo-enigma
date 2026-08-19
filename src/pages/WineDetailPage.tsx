@@ -5,7 +5,15 @@ import { usePhotoUrl } from '../components/Photo';
 import { Screen } from '../components/Screen';
 import { EmptyState, StarRating } from '../components/ui';
 import { deleteCellarWine, putCellarWine } from '../lib/db';
-import { formatDate, formatMoney, originLine, sizeLabel, vintageLabel, wineTitle } from '../lib/format';
+import {
+  formatDate,
+  formatMoney,
+  originLine,
+  placeLabel,
+  sizeLabel,
+  vintageLabel,
+  wineTitle,
+} from '../lib/format';
 import { storedRef } from '../lib/photos';
 import { useData } from '../lib/store';
 
@@ -143,7 +151,9 @@ export const WineDetailPage = () => {
                 <div className="row-between">
                   <div style={{ minWidth: 0 }}>
                     <div>{formatDate(entry.drunkOn)}</div>
-                    <div className="small faint">{entry.place || 'Place not recorded'}</div>
+                    <div className="small faint">
+                      {placeLabel(entry) || 'Place not recorded'}
+                    </div>
                   </div>
                   <StarRating value={entry.rating} />
                 </div>

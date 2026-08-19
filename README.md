@@ -16,7 +16,11 @@ date and merchant, drinking window, storage location, notes and a label photo. S
 across all of it, filter by style or country, sort by producer, vintage or quantity.
 
 **Diary** — what you drank, when, where, with whom, on what occasion, with a rating and a
-tasting note. Marking a bottle as drunk writes the diary entry and decrements the cellar
+tasting note. A switch marks each bottle as drunk **in private** — a free-text place like
+"Home" — or **at a venue**, which records the restaurant, bar or winery by name along with
+its city and country, so the statistics can group by where you actually drank rather than
+by whatever you typed. Entries logged before venues existed keep working and read as
+private. Marking a bottle as drunk writes the diary entry and decrements the cellar
 quantity in a single database transaction, so the two can never drift apart. A wine that
 runs out stays in the cellar at zero bottles, keeping its history, and can be restocked.
 Wines drunk elsewhere can be logged straight into the diary without ever entering the

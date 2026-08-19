@@ -46,7 +46,11 @@ const entry = (overrides: Partial<DiaryEntry>): DiaryEntry => ({
   abv: null,
   sizeMl: 750,
   drunkOn: '2026-01-15',
+  setting: 'private',
   place: 'Home',
+  venue: '',
+  city: '',
+  venueCountry: '',
   occasion: '',
   companions: '',
   rating: null,
@@ -136,5 +140,24 @@ test('the monthly series always spans twelve months', () => {
   assert.equal(
     stats.perMonth.reduce((sum, slice) => sum + slice.value, 0) <= 1,
     true,
+  );
+});
+
+test('venues are grouped by name and city, and counted', () => {
+  const stats = diaryStats(
+    [
+      entry({ setting: 'venue', venue: 'Noma', city: 'Copenhagen', venueCountry: 'Denmark' }),
+      entry({ setting: 'venue', venue: 'Noma', city: 'Copenhagen', venueCountry: 'Denmark' }),
+      entry({ place: 'Home' }),
+    ],
+    'EUR',
+  );
+  assert.equal(stats.atVenue, 2);
+  assert.deepEqual(
+    stats.byPlace.map((slice) => [slice.label, slice.value]),
+    [
+      ['Noma, Copenhagen', 2],
+      ['Home', 1],
+    ],
   );
 });

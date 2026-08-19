@@ -121,6 +121,7 @@ export const StatsPage = () => {
               value={drunk.spend === null ? '—' : formatMoney(drunk.spend, drunk.currency)}
               label="Value drunk"
             />
+            <Tile value={drunk.atVenue} label="Drunk out" />
           </div>
 
           <ChartCard title="Bottles per month" note="The last twelve months.">
@@ -166,7 +167,10 @@ export const StatsPage = () => {
             <RankedBars data={drunk.byProducer} format={bottles} />
           </ChartCard>
 
-          <ChartCard title="Where you drank">
+          <ChartCard
+            title="Where you drank"
+            note={`${drunk.atVenue} of ${drunk.bottles} bottles were drunk out.`}
+          >
             <RankedBars data={drunk.byPlace} format={bottles} />
           </ChartCard>
         </div>

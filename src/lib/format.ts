@@ -1,4 +1,4 @@
-import { BOTTLE_SIZES, type WineFacts } from '../types';
+import { BOTTLE_SIZES, type DiaryEntry, type WineFacts } from '../types.ts';
 
 /** Headline for a wine: cuvée if it has one, otherwise appellation or producer. */
 export const wineTitle = (wine: WineFacts): string =>
@@ -18,6 +18,24 @@ export const originLine = (wine: WineFacts): string =>
     .filter(Boolean)
     .filter((part, index, all) => all.indexOf(part) === index)
     .join(' · ');
+
+/**
+ * Where a bottle was drunk, as one line. The venue's country is left off the
+ * short form, which is what cards and lists want.
+ */
+export const placeLabel = (
+  entry: Pick<DiaryEntry, 'setting' | 'place' | 'venue' | 'city' | 'venueCountry'>,
+  { full = false }: { full?: boolean } = {},
+): string => {
+  if (entry.setting !== 'venue') return entry.place.trim();
+  const parts = full
+    ? [entry.venue, entry.city, entry.venueCountry]
+    : [entry.venue, entry.city];
+  return parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(', ');
+};
 
 export const formatMoney = (amount: number | null, currency: string): string => {
   if (amount === null || !Number.isFinite(amount)) return '—';

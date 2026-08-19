@@ -1,3 +1,4 @@
+import { placeLabel } from './format.ts';
 import type { CellarWine, DiaryEntry, WineFacts } from '../types';
 
 export interface Slice {
@@ -119,6 +120,8 @@ export interface DiaryStats {
   byGrape: Slice[];
   byProducer: Slice[];
   byPlace: Slice[];
+  /** Bottles drunk out rather than at home. */
+  atVenue: number;
   ratingSpread: Slice[];
   ratingByCountry: Slice[];
   ratingByType: Slice[];
@@ -197,7 +200,8 @@ export const diaryStats = (diary: DiaryEntry[], fallbackCurrency: string): Diary
     byType: rank(diary.map((entry) => [entry.wineType || 'Unspecified', 1]), 8, { fold: false }),
     byGrape: rank(grapeEntries(diary, () => 1), 8),
     byProducer: rank(diary.map((entry) => [entry.producer, 1]), 8),
-    byPlace: rank(diary.map((entry) => [entry.place, 1]), 6),
+    byPlace: rank(diary.map((entry) => [placeLabel(entry), 1]), 6),
+    atVenue: diary.filter((entry) => entry.setting === 'venue').length,
     ratingSpread,
     ratingByCountry: averageBy(diary, (entry) => entry.country),
     ratingByType: averageBy(diary, (entry) => entry.wineType),

@@ -4,7 +4,7 @@ import { BookIcon, PlusIcon, SearchIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { EmptyState, StarRating } from '../components/ui';
 import { WineCard } from '../components/WineCard';
-import { formatDate, monthLabel, originLine, vintageLabel, wineTitle } from '../lib/format';
+import { formatDate, monthLabel, originLine, placeLabel, vintageLabel, wineTitle } from '../lib/format';
 import { useData } from '../lib/store';
 import type { DiaryEntry } from '../types';
 
@@ -17,6 +17,9 @@ const matches = (entry: DiaryEntry, query: string) => {
     entry.region,
     entry.appellation,
     entry.place,
+    entry.venue,
+    entry.city,
+    entry.venueCountry,
     entry.occasion,
     entry.companions,
     entry.tastingNote,
@@ -95,7 +98,7 @@ export const DiaryPage = () => {
                   photoId={entry.photoId}
                   producer={entry.producer}
                   title={`${wineTitle(entry)} ${vintageLabel(entry.vintage)}`}
-                  meta={[formatDate(entry.drunkOn), entry.place || originLine(entry)]
+                  meta={[formatDate(entry.drunkOn), placeLabel(entry) || originLine(entry)]
                     .filter(Boolean)
                     .join(' · ')}
                   right={

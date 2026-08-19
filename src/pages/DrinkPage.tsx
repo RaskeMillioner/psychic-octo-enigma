@@ -17,7 +17,11 @@ export const DrinkPage = () => {
 
   const [details, setDetails] = useState<DiaryDetails>({
     drunkOn: todayIso(),
+    setting: 'private',
     place: '',
+    venue: '',
+    city: '',
+    venueCountry: '',
     occasion: '',
     companions: '',
     rating: null,

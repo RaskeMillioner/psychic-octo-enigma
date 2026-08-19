@@ -62,14 +62,23 @@ export interface CellarWine extends WineFacts {
   updatedAt: string;
 }
 
+/** Whether a bottle was drunk privately or out somewhere. */
+export type DrinkSetting = 'private' | 'venue';
+
 export interface DiaryEntry extends WineFacts {
   id: string;
   /** Set when the bottle came out of the cellar. */
   cellarWineId: string | null;
   /** ISO date (YYYY-MM-DD) the bottle was drunk. */
   drunkOn: string;
-  /** Where it was drunk, e.g. "Home" or "Noma, Copenhagen". */
+  setting: DrinkSetting;
+  /** Private setting only: free text, e.g. "Home" or "At Anna's". */
   place: string;
+  /** Venue setting only: the restaurant, bar or winery. */
+  venue: string;
+  city: string;
+  /** The venue's country — not the wine's, which lives in `country`. */
+  venueCountry: string;
   occasion: string;
   companions: string;
   /** 1–5, or null when not rated. */

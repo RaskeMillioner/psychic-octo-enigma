@@ -78,9 +78,30 @@ export const deleteCellarWine = async (id: string) => {
 
 /* ------------------------------------------------------------------- diary */
 
-export const listDiary = async (): Promise<DiaryEntry[]> => (await getDb()).getAll('diary');
+/**
+ * Entries written before venues existed have no setting, venue, city or
+ * country. Rather than migrate the store — a risky thing to run against a
+ * cellar that is already someone's only copy — the defaults are applied as
+ * records are read, and written back the next time an entry is saved.
+ */
+type StoredDiaryEntry = Omit<DiaryEntry, 'setting' | 'venue' | 'city' | 'venueCountry'> &
+  Partial<Pick<DiaryEntry, 'setting' | 'venue' | 'city' | 'venueCountry'>>;
 
-export const getDiaryEntry = async (id: string) => (await getDb()).get('diary', id);
+const withVenueDefaults = (entry: StoredDiaryEntry): DiaryEntry => ({
+  ...entry,
+  setting: entry.setting ?? 'private',
+  venue: entry.venue ?? '',
+  city: entry.city ?? '',
+  venueCountry: entry.venueCountry ?? '',
+});
+
+export const listDiary = async (): Promise<DiaryEntry[]> =>
+  (await (await getDb()).getAll('diary')).map(withVenueDefaults);
+
+export const getDiaryEntry = async (id: string) => {
+  const entry = await (await getDb()).get('diary', id);
+  return entry ? withVenueDefaults(entry) : entry;
+};
 
 export const putDiaryEntry = async (entry: DiaryEntry): Promise<DiaryEntry> => {
   const record = { ...entry, updatedAt: now() };
@@ -223,7 +244,9 @@ export const importBackup = async (backup: Backup) => {
   const db = await getDb();
   const tx = db.transaction(['wines', 'diary', 'photos'], 'readwrite');
   for (const wine of backup.wines ?? []) await tx.objectStore('wines').put(wine);
-  for (const entry of backup.diary ?? []) await tx.objectStore('diary').put(entry);
+  for (const entry of backup.diary ?? []) {
+    await tx.objectStore('diary').put(withVenueDefaults(entry));
+  }
   for (const [id, dataUrl] of Object.entries(backup.photos ?? {})) {
     const blob = await (await fetch(dataUrl)).blob();
     await tx.objectStore('photos').put({ id, blob, createdAt: now() });

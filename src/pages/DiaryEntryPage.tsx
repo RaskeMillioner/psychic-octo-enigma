@@ -43,7 +43,11 @@ export const DiaryEntryPage = () => {
     setFacts(pickWineFacts(entry));
     setDetails({
       drunkOn: entry.drunkOn,
+      setting: entry.setting,
       place: entry.place,
+      venue: entry.venue,
+      city: entry.city,
+      venueCountry: entry.venueCountry,
       occasion: entry.occasion,
       companions: entry.companions,
       rating: entry.rating,
@@ -119,7 +123,13 @@ export const DiaryEntryPage = () => {
 
   const facts_: [string, string][] = [
     ['Drunk on', formatDate(entry.drunkOn)],
-    ['Place', entry.place || '—'],
+    ...(entry.setting === 'venue'
+      ? ([
+          ['Venue', entry.venue || '—'],
+          ['City', entry.city || '—'],
+          ['Venue country', entry.venueCountry || '—'],
+        ] as [string, string][])
+      : ([['Place', entry.place || '—']] as [string, string][])),
     ['Occasion', entry.occasion || '—'],
     ['Shared with', entry.companions || '—'],
     ['Vintage', vintageLabel(entry.vintage)],

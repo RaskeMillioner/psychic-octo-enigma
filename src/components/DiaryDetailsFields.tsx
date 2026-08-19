@@ -1,9 +1,21 @@
 import type { DiaryEntry } from '../types';
+import { SegmentedControl } from './SegmentedControl';
 import { Field, StarRating } from './ui';
 
 export type DiaryDetails = Pick<
   DiaryEntry,
-  'drunkOn' | 'place' | 'occasion' | 'companions' | 'rating' | 'tastingNote' | 'price' | 'currency'
+  | 'drunkOn'
+  | 'setting'
+  | 'place'
+  | 'venue'
+  | 'city'
+  | 'venueCountry'
+  | 'occasion'
+  | 'companions'
+  | 'rating'
+  | 'tastingNote'
+  | 'price'
+  | 'currency'
 >;
 
 interface Props {
@@ -14,14 +26,53 @@ interface Props {
 /** The "when, where and how was it" half of a diary entry. */
 export const DiaryDetailsFields = ({ value, onChange }: Props) => (
   <div className="stack">
-    <div className="grid-2">
-      <Field label="Date drunk">
-        <input
-          type="date"
-          value={value.drunkOn}
-          onChange={(event) => onChange({ drunkOn: event.target.value })}
-        />
-      </Field>
+    <Field label="Date drunk">
+      <input
+        type="date"
+        value={value.drunkOn}
+        onChange={(event) => onChange({ drunkOn: event.target.value })}
+      />
+    </Field>
+
+    <div>
+      <span className="field-label">Where</span>
+      <SegmentedControl
+        value={value.setting}
+        onChange={(setting) => onChange({ setting })}
+        options={[
+          { value: 'private', label: 'In private' },
+          { value: 'venue', label: 'At a venue' },
+        ]}
+      />
+    </div>
+
+    {value.setting === 'venue' ? (
+      <>
+        <Field label="Restaurant, bar or winery">
+          <input
+            value={value.venue}
+            placeholder="Noma"
+            onChange={(event) => onChange({ venue: event.target.value })}
+          />
+        </Field>
+        <div className="grid-2">
+          <Field label="City">
+            <input
+              value={value.city}
+              placeholder="Copenhagen"
+              onChange={(event) => onChange({ city: event.target.value })}
+            />
+          </Field>
+          <Field label="Country">
+            <input
+              value={value.venueCountry}
+              placeholder="Denmark"
+              onChange={(event) => onChange({ venueCountry: event.target.value })}
+            />
+          </Field>
+        </div>
+      </>
+    ) : (
       <Field label="Place">
         <input
           value={value.place}
@@ -29,7 +80,7 @@ export const DiaryDetailsFields = ({ value, onChange }: Props) => (
           onChange={(event) => onChange({ place: event.target.value })}
         />
       </Field>
-    </div>
+    )}
 
     <div className="grid-2">
       <Field label="Occasion">
