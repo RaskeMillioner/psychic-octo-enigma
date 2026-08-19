@@ -1,6 +1,12 @@
 import type { WineFacts } from '../types';
 import type { LabelReading, Provenance } from './labelFields.ts';
 
+/** One entry in a provider's model dropdown. */
+export interface ScanModel {
+  id: string;
+  label: string;
+}
+
 export interface ScanResult {
   facts: WineFacts;
   confidence: LabelReading['confidence'];

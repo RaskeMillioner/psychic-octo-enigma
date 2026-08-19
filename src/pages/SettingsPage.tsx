@@ -3,7 +3,9 @@ import { DownloadIcon, SparkleIcon, TrashIcon, UploadIcon } from '../components/
 import { Screen } from '../components/Screen';
 import { Banner, Field, Spinner } from '../components/ui';
 import { clearAllData, exportBackup, importBackup } from '../lib/db';
-import { listGeminiModels, type GeminiModel } from '../lib/scanGemini';
+import { ModelPicker } from '../components/ModelPicker';
+import { listClaudeModels } from '../lib/claudeModels';
+import { listGeminiModels } from '../lib/scanGemini';
 import { useData } from '../lib/store';
 import type { ScanProvider, Settings } from '../types';
 
@@ -26,35 +28,9 @@ export const SettingsPage = () => {
   const [busy, setBusy] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [usage, setUsage] = useState('');
-  const [models, setModels] = useState<GeminiModel[]>([]);
-  const [modelsError, setModelsError] = useState('');
-  const [loadingModels, setLoadingModels] = useState(false);
   const importInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => setDraft(settings), [settings]);
-
-  // The dropdown is only useful once it has options, so fetch them as soon as
-  // there is a saved key to ask with.
-  useEffect(() => {
-    if (settings.scanProvider !== 'gemini' || !settings.geminiApiKey) return;
-    let cancelled = false;
-    setLoadingModels(true);
-    listGeminiModels(settings.geminiApiKey)
-      .then((available) => {
-        if (!cancelled) setModels(available);
-      })
-      .catch(() => {
-        // Nobody asked for this fetch, so a failure stays quiet — pressing
-        // "Load models" reports properly.
-        if (!cancelled) setModels([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingModels(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [settings.scanProvider, settings.geminiApiKey]);
 
   useEffect(() => {
     void navigator.storage?.estimate?.().then((estimate) => {
@@ -74,20 +50,6 @@ export const SettingsPage = () => {
       currency: draft.currency.trim().toUpperCase() || 'EUR',
     });
     setStatus('Settings saved.');
-  };
-
-  const loadModels = async () => {
-    setLoadingModels(true);
-    setModelsError('');
-    try {
-      const available = await listGeminiModels(draft.geminiApiKey.trim());
-      setModels(available);
-      if (available.length === 0) setModelsError('That key returned no usable models.');
-    } catch (error) {
-      setModelsError(error instanceof Error ? error.message : 'Could not load models.');
-    } finally {
-      setLoadingModels(false);
-    }
   };
 
   const download = async () => {
@@ -166,46 +128,18 @@ export const SettingsPage = () => {
               />
             </Field>
 
-            <Field
-              label="Model"
-              hint={
-                models.length
-                  ? `${models.length} models your key can use.`
-                  : 'Save your key, then load the models it can use.'
+            <ModelPicker
+              value={draft.geminiModel}
+              onChange={(geminiModel) => patch({ geminiModel })}
+              savedKey={settings.geminiApiKey}
+              draftKey={draft.geminiApiKey}
+              load={listGeminiModels}
+              extra={
+                <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
+                  {showKey ? 'Hide key' : 'Show key'}
+                </button>
               }
-            >
-              <select
-                value={draft.geminiModel}
-                onChange={(event) => patch({ geminiModel: event.target.value })}
-              >
-                {/* Whatever is configured stays selectable even before the list loads. */}
-                {models.every((model) => model.id !== draft.geminiModel) && draft.geminiModel ? (
-                  <option value={draft.geminiModel}>{draft.geminiModel}</option>
-                ) : null}
-                {models.map((model) => (
-                  <option key={model.id} value={model.id}>
-                    {model.label === model.id ? model.id : `${model.label} — ${model.id}`}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <div className="row">
-              <button
-                type="button"
-                className="btn btn-sm"
-                disabled={loadingModels || !draft.geminiApiKey.trim()}
-                onClick={() => void loadModels()}
-              >
-                {loadingModels ? <Spinner /> : null}
-                {models.length ? 'Refresh models' : 'Load models'}
-              </button>
-              <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
-                {showKey ? 'Hide key' : 'Show key'}
-              </button>
-            </div>
-
-            {modelsError ? <Banner tone="error">{modelsError}</Banner> : null}
+            />
 
             <Banner>
               Google's free tier costs nothing and needs no card, but it is rate limited, and
@@ -229,20 +163,18 @@ export const SettingsPage = () => {
               />
             </Field>
 
-            <Field label="Model">
-              <input
-                value={draft.claudeModel}
-                placeholder="claude-opus-5"
-                spellCheck={false}
-                onChange={(event) => patch({ claudeModel: event.target.value })}
-              />
-            </Field>
-
-            <div className="row">
-              <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
-                {showKey ? 'Hide key' : 'Show key'}
-              </button>
-            </div>
+            <ModelPicker
+              value={draft.claudeModel}
+              onChange={(claudeModel) => patch({ claudeModel })}
+              savedKey={settings.apiKey}
+              draftKey={draft.apiKey}
+              load={listClaudeModels}
+              extra={
+                <button type="button" className="btn btn-sm" onClick={() => setShowKey(!showKey)}>
+                  {showKey ? 'Hide key' : 'Show key'}
+                </button>
+              }
+            />
           </div>
         )}
 

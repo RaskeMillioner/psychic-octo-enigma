@@ -62,13 +62,15 @@ model's reading rather than a wine database, so confirm the details on obscure b
 | Provider | Cost | Notes |
 | --- | --- | --- |
 | **Gemini** (pick from the model dropdown) | Free tier, no card | Rate limited, and free-tier quota varies by model and region — a model with no free allowance answers 429 immediately, so the app reports Google's own wording and steps to another model once. Google's free-tier terms permit using what you send to improve their models, label photos included. Key from aistudio.google.com/apikey. |
-| **Claude** (`claude-opus-5`) | Pay per scan, roughly a few cents a label | No training on your data. Key from console.anthropic.com. |
+| **Claude** (pick from the model dropdown) | Pay per scan, roughly a few cents a label | No training on your data. Key from console.anthropic.com. |
 
 Both are called directly from the browser with plain `fetch`/SDK calls; keys are stored
-only in this browser, on this device, and go nowhere but the provider you chose. The
-Gemini model is chosen from a dropdown of the models your own key can reach, and if the
-configured one ever stops existing the scanner asks the key what it can use and corrects
-itself — skipping preview and experimental builds, which routinely have no free quota.
+only in this browser, on this device, and go nowhere but the provider you chose. Either
+provider's model is chosen from a dropdown of the models your own key can reach — filtered
+to those that accept images, since a model that cannot take a photo cannot read a label —
+and if a configured Gemini model ever stops existing the scanner asks the key what it can
+use and corrects itself, skipping preview and experimental builds, which routinely have no
+free quota.
 
 Without any key, every other part of the app still works and wines are entered by hand.
 

@@ -11,7 +11,7 @@ import {
   USER_PROMPT,
   type LabelReading,
 } from './labelFields.ts';
-import type { ScanResult } from './scanTypes.ts';
+import type { ScanModel, ScanResult } from './scanTypes.ts';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -81,11 +81,7 @@ const RESPONSE_SCHEMA = {
   ],
 };
 
-export interface GeminiModel {
-  /** Bare id, e.g. "gemini-2.5-flash". */
-  id: string;
-  label: string;
-}
+export type GeminiModel = ScanModel;
 
 /** Models the user's own key can call, so nobody has to guess a model name. */
 export const listGeminiModels = async (apiKey: string): Promise<GeminiModel[]> => {
