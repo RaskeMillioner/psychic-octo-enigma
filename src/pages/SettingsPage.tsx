@@ -11,6 +11,7 @@ import {
   saveReview,
 } from '../lib/db';
 import { buildEnrichment, INSTRUCTIONS, mergeEnrichment } from '../lib/enrichment';
+import { parseJsonLoosely } from '../lib/json';
 import { ModelPicker } from '../components/ModelPicker';
 import { listClaudeModels } from '../lib/claudeModels';
 import { listGeminiModels } from '../lib/scanGemini';
@@ -39,6 +40,8 @@ export const SettingsPage = () => {
   const importInput = useRef<HTMLInputElement>(null);
   const enrichInput = useRef<HTMLInputElement>(null);
   const [enrichStatus, setEnrichStatus] = useState('');
+  const [pasted, setPasted] = useState('');
+  const [pasting, setPasting] = useState(false);
 
   useEffect(() => setDraft(settings), [settings]);
 
@@ -113,12 +116,11 @@ export const SettingsPage = () => {
     );
   };
 
-  const importGaps = async (file: File | undefined) => {
-    if (!file) return;
+  const applyEnrichment = async (raw: string) => {
     setBusy(true);
     setEnrichStatus('');
     try {
-      const report = mergeEnrichment(JSON.parse(await file.text()), wines, diary);
+      const report = mergeEnrichment(parseJsonLoosely(raw), wines, diary);
       for (const record of report.wines) await putCellarWine(record);
       for (const record of report.diary) await putDiaryEntry(record);
       if (report.review) await saveReview(report.review);
@@ -137,10 +139,16 @@ export const SettingsPage = () => {
           .join(' '),
       );
     } catch (error) {
-      setEnrichStatus(error instanceof Error ? error.message : 'Could not read that file.');
+      setEnrichStatus(
+        error instanceof Error ? error.message : 'Could not read that — is it the filled JSON?',
+      );
     } finally {
       setBusy(false);
     }
+  };
+
+  const importGaps = async (file: File | undefined) => {
+    if (file) await applyEnrichment(await file.text());
   };
 
   const wipe = async () => {
@@ -359,16 +367,42 @@ export const SettingsPage = () => {
               Import filled
             </button>
           </div>
-          <button
-            type="button"
-            className="btn btn-sm"
-            onClick={() => {
-              void navigator.clipboard?.writeText(INSTRUCTIONS);
-              setEnrichStatus('Instructions copied — paste them with the file if the chat needs them.');
-            }}
-          >
-            Copy the instructions
-          </button>
+          <div className="row">
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={() => {
+                void navigator.clipboard?.writeText(INSTRUCTIONS);
+                setEnrichStatus('Instructions copied — paste them with the file if the chat needs them.');
+              }}
+            >
+              Copy the instructions
+            </button>
+            <button type="button" className="btn btn-sm" onClick={() => setPasting(!pasting)}>
+              {pasting ? 'Hide paste box' : 'Paste instead'}
+            </button>
+          </div>
+
+          {pasting ? (
+            <div className="stack">
+              <textarea
+                value={pasted}
+                placeholder="Paste the filled JSON here, if the chat answered in the message rather than with a file."
+                spellCheck={false}
+                onChange={(event) => setPasted(event.target.value)}
+              />
+              <button
+                type="button"
+                className="btn"
+                disabled={busy || !pasted.trim()}
+                onClick={() => {
+                  void applyEnrichment(pasted).then(() => setPasted(''));
+                }}
+              >
+                Apply pasted answer
+              </button>
+            </div>
+          ) : null}
           {enrichStatus ? <Banner tone="info">{enrichStatus}</Banner> : null}
           <input
             ref={enrichInput}

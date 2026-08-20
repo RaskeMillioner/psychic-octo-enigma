@@ -97,7 +97,11 @@ export const INSTRUCTIONS = [
   '  "suggestions": 3-6 objects of {"wine": "...", "why": "..."} naming specific producers or bottles worth buying next. Use the ratings in "drunk" to infer taste. Say plainly why each one addresses a gap or extends something already enjoyed.',
   'Be candid rather than flattering — an honest weakness is more useful than praise. Name real, findable wines.',
   '',
-  'Reply with the complete JSON object in the same shape, including "wines" and "review", and nothing else — no commentary, no markdown fence.',
+  'HOW TO DELIVER IT — this part matters.',
+  'Create a downloadable file named "cellarbook-filled.json" containing the complete JSON object: the same shape as this file, with "wines" filled in and "review" added.',
+  'Do NOT paste the JSON into the chat. It is imported by an app, not read by a person, and a chat message cannot be imported. The file is the deliverable; a short sentence saying what you found is welcome, the JSON itself is not.',
+  'Keep every key from this file, including "format", "version" and each wine\'s "id" — the import matches on them.',
+  'If you genuinely cannot produce a file, then print the raw JSON alone, with no commentary and no markdown fence, so it can be copied in one go.',
 ].join('\n');
 
 const isBlank = (record: EnrichmentRecord, field: Fillable): boolean => {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildEnrichment, hasGaps, mergeEnrichment } from '../enrichment.ts';
+import { parseJsonLoosely } from '../json.ts';
 import type { CellarWine, DiaryEntry } from '../../types.ts';
 
 const wine = (overrides: Partial<CellarWine>): CellarWine => ({
@@ -223,6 +224,25 @@ test('the instructions ask for a candid review, not just metadata', () => {
   assert.match(file.instructions, /"gaps"/);
   assert.match(file.instructions, /"suggestions"/);
   assert.match(file.instructions, /candid rather than flattering/i);
+});
+
+test('the instructions ask for a file, since a chat message cannot be imported', () => {
+  const { instructions } = buildEnrichment([wine({})], []);
+  assert.match(instructions, /downloadable file named "cellarbook-filled\.json"/);
+  assert.match(instructions, /Do NOT paste the JSON into the chat/);
+  assert.match(instructions, /cannot produce a file/, 'with a fallback for chats that cannot');
+  assert.match(instructions, /"format", "version"/, 'and a warning to keep the keys the import needs');
+});
+
+test('an answer pasted with a fence or a sentence around it still merges', () => {
+  const reply = JSON.stringify({
+    ...enriched([{ id: 'w1', kind: 'cellar', country: 'France' }]),
+    review: { summary: 'Fine cellar.', strengths: [], gaps: [], suggestions: [] },
+  });
+  const messy = `Here you go!\n\n\`\`\`json\n${reply}\n\`\`\`\n\nHope that helps.`;
+  const report = mergeEnrichment(parseJsonLoosely(messy), [wine({})], []);
+  assert.equal(report.wines[0].country, 'France');
+  assert.equal(report.review?.summary, 'Fine cellar.');
 });
 
 test('a review comes back through the merge', () => {
