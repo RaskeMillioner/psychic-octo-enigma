@@ -128,7 +128,11 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
             ? "That doesn't look like a wine label — check the fields below carefully."
             : `Identified with ${result.confidence} confidence${
                 result.usedModel ? ` by ${result.usedModel}` : ''
-              }${result.searched ? ', with a web lookup' : ''}. ${result.notes}`}
+              }${result.searched ? ', with a web lookup' : ''}. ${result.notes}${
+                result.lookupRefused
+                  ? ' The web lookup was refused by your key — this scan read the label only. Grounding is quota\u2019d separately from ordinary requests; turn the lookup off in Settings to stop asking.'
+                  : ''
+              }`}
         </Banner>
       ) : null}
     </div>

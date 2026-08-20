@@ -57,6 +57,12 @@ runs through Google Search on Gemini and Anthropic's web search on Claude; where
 is too old to combine searching with a JSON schema, the scan retries without it rather
 than failing.
 
+Grounding is quota'd **separately** from ordinary requests, and that quota is not the one
+a provider's rate-limit page shows — so a key with requests to spare can still have its
+searches refused. When that happens the scan drops the lookup, reads the label alone, and
+says so, and it stops asking for the rest of the session rather than spending a request on
+a refusal every time.
+
 Every field it fills carries a note saying **where that value came from and how sure it
 is** — read off the label, found online, inferred from the appellation, or a low-confidence
 guess. Guesses are highlighted so they are the ones you check, and a note disappears as

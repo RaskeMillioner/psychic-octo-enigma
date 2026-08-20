@@ -16,4 +16,6 @@ export interface ScanResult {
   provenance: Provenance;
   /** True when the model was able to search the web for this bottle. */
   searched: boolean;
+  /** True when a web lookup was asked for but the provider refused the quota. */
+  lookupRefused?: boolean;
 }

@@ -35,6 +35,7 @@ export const scanWithClaude = async (
   ];
 
   let searching = webLookup;
+  let lookupRefused = false;
 
   const ask = () =>
     client.messages.parse({
@@ -56,6 +57,7 @@ export const scanWithClaude = async (
     // still works without it.
     if (searching && error instanceof Anthropic.APIError && error.status === 400) {
       searching = false;
+      lookupRefused = true;
       try {
         response = await ask();
       } catch (retryError) {
@@ -92,6 +94,7 @@ export const scanWithClaude = async (
     isWineLabel: reading.isWineLabel,
     provenance: toProvenance(reading.fields),
     searched: searching,
+    lookupRefused,
   };
 };
 

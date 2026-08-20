@@ -271,6 +271,13 @@ export interface GeminiScanOutcome extends ScanResult {
 }
 
 /** Reads a label with Gemini, which has a no-cost free tier. */
+/**
+ * Set once a grounded request has been refused. Asking again costs a request
+ * from a daily allowance that is small enough to matter, so the rest of the
+ * session reads labels without searching until the app is reloaded.
+ */
+let groundingRefused = false;
+
 export const scanWithGemini = async (
   photo: Blob,
   apiKey: string,
@@ -281,7 +288,7 @@ export const scanWithGemini = async (
 
   const data = await blobToBase64(photo);
   const tried: string[] = [];
-  let searching = webLookup;
+  let searching = webLookup && !groundingRefused;
 
   const call = async (candidate: string, disableThinking = true) => {
     if (!tried.includes(candidate)) tried.push(candidate);
@@ -298,6 +305,18 @@ export const scanWithGemini = async (
     usedModel = selectScanModel(models) ?? 'gemini-flash-latest';
   }
   let response = await call(usedModel);
+
+  // Grounding with Google Search is quota'd separately from ordinary requests —
+  // and that quota is not the one the rate-limit page shows. If a grounded call
+  // is refused, the label itself is still readable, so drop the search and try
+  // again before blaming the model.
+  let lookupRefused = false;
+  if (searching && (response.status === 429 || response.status === 403)) {
+    searching = false;
+    lookupRefused = true;
+    groundingRefused = true;
+    response = await call(usedModel);
+  }
 
   // A model that is missing, or that carries no free quota, is worth stepping
   // past once: ask the key what it can reach and try the best remaining option.
@@ -378,6 +397,7 @@ export const scanWithGemini = async (
     isWineLabel: reading.isWineLabel !== false,
     provenance: toProvenance(reading.fields),
     searched: searching,
+    lookupRefused,
     usedModel,
   };
 };
