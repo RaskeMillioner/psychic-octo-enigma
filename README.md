@@ -100,6 +100,20 @@ npm run icons      # regenerate the app icons from scripts/make-icons.mjs
 served from any host or subdirectory. Open it on your phone and use "Add to Home Screen";
 the service worker keeps it working offline.
 
+### Filling gaps in a batch
+
+Scanning bottle by bottle is not the only way to get metadata in. **Settings → Fill gaps
+in a batch** exports the wines that are missing a region, grape or classification as a
+small JSON file that carries its own instructions. Upload it to any chat with web access,
+ask it to follow the instructions, and import the answer back.
+
+The file is deliberately not a backup: it carries only the metadata that describes each
+wine, so photos, quantities, prices, purchase dates and your own notes never leave the
+device. The merge is blanks-only and keyed by id — a value you already entered is kept, a
+record that is not in this cellar is skipped, and a reply that tries to change a quantity
+or a price is ignored. The import reports how many fields it filled and how many it left
+alone.
+
 ## Where the data lives
 
 Everything is in IndexedDB on the device: wines, diary entries, label photos (stored as

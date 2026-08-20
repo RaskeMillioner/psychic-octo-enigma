@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { DownloadIcon, SparkleIcon, TrashIcon, UploadIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { Banner, Field, Spinner } from '../components/ui';
-import { clearAllData, exportBackup, importBackup } from '../lib/db';
+import { clearAllData, exportBackup, importBackup, putCellarWine, putDiaryEntry } from '../lib/db';
+import { buildEnrichment, INSTRUCTIONS, mergeEnrichment } from '../lib/enrichment';
 import { ModelPicker } from '../components/ModelPicker';
 import { listClaudeModels } from '../lib/claudeModels';
 import { listGeminiModels } from '../lib/scanGemini';
@@ -29,6 +30,8 @@ export const SettingsPage = () => {
   const [confirmClear, setConfirmClear] = useState(false);
   const [usage, setUsage] = useState('');
   const importInput = useRef<HTMLInputElement>(null);
+  const enrichInput = useRef<HTMLInputElement>(null);
+  const [enrichStatus, setEnrichStatus] = useState('');
 
   useEffect(() => setDraft(settings), [settings]);
 
@@ -80,6 +83,51 @@ export const SettingsPage = () => {
       setStatus(`Imported ${result.wines} cellar wines and ${result.diary} diary entries.`);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : 'Import failed.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportGaps = () => {
+    const file = buildEnrichment(wines, diary);
+    if (file.wines.length === 0) {
+      setEnrichStatus('Nothing to fill in — every wine already has its region, grapes and the rest.');
+      return;
+    }
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `cellarbook-gaps-${file.exportedAt.slice(0, 10)}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setEnrichStatus(
+      `Exported ${file.wines.length} ${file.wines.length === 1 ? 'wine' : 'wines'} with gaps. Upload the file to a chat and ask it to follow the instructions inside.`,
+    );
+  };
+
+  const importGaps = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    setEnrichStatus('');
+    try {
+      const report = mergeEnrichment(JSON.parse(await file.text()), wines, diary);
+      for (const record of report.wines) await putCellarWine(record);
+      for (const record of report.diary) await putDiaryEntry(record);
+      await reload();
+      setEnrichStatus(
+        report.filled === 0
+          ? 'Nothing to add — the file had no new values for wines in this cellar.'
+          : [
+              `Filled ${report.filled} ${report.filled === 1 ? 'field' : 'fields'} across ${report.wines.length + report.diary.length} wines.`,
+              report.ignored ? `Left ${report.ignored} alone that already had values.` : '',
+              report.unknown ? `Skipped ${report.unknown} not in this cellar.` : '',
+            ]
+              .filter(Boolean)
+              .join(' '),
+      );
+    } catch (error) {
+      setEnrichStatus(error instanceof Error ? error.message : 'Could not read that file.');
     } finally {
       setBusy(false);
     }
@@ -263,6 +311,61 @@ export const SettingsPage = () => {
             hidden
             onChange={(event) => {
               void upload(event.target.files?.[0]);
+              event.target.value = '';
+            }}
+          />
+        </div>
+      </section>
+
+      <section className="section">
+        <h3 className="section-title">Fill gaps in a batch</h3>
+        <div className="card stack">
+          <div className="small muted">
+            Export the wines that are missing a region, grape or classification, upload that file
+            to a chat with web access — the Claude app, say — and import the answer back. It fills
+            blanks only: quantities, prices, photos and your notes are never sent and never
+            changed, and values you already entered are kept.
+          </div>
+          <div className="row">
+            <button
+              type="button"
+              className="btn"
+              style={{ flex: 1 }}
+              disabled={busy}
+              onClick={exportGaps}
+            >
+              <DownloadIcon />
+              Export gaps
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{ flex: 1 }}
+              disabled={busy}
+              onClick={() => enrichInput.current?.click()}
+            >
+              <UploadIcon />
+              Import filled
+            </button>
+          </div>
+          <button
+            type="button"
+            className="btn btn-sm"
+            onClick={() => {
+              void navigator.clipboard?.writeText(INSTRUCTIONS);
+              setEnrichStatus('Instructions copied — paste them with the file if the chat needs them.');
+            }}
+          >
+            Copy the instructions
+          </button>
+          {enrichStatus ? <Banner tone="info">{enrichStatus}</Banner> : null}
+          <input
+            ref={enrichInput}
+            type="file"
+            accept="application/json"
+            hidden
+            onChange={(event) => {
+              void importGaps(event.target.files?.[0]);
               event.target.value = '';
             }}
           />
