@@ -865,6 +865,41 @@ select {
   margin-top: 0;
 }
 
+/* --------------------------------------------------------- cellar review */
+.review-summary {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.review-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.review-list li::marker {
+  color: var(--wine-bright);
+}
+
+.review-list.gaps li::marker {
+  color: var(--gold);
+}
+
+.review-list.suggestions {
+  list-style: none;
+  padding-left: 0;
+  gap: 10px;
+}
+
+.review-list.suggestions strong {
+  font-weight: 600;
+}
+
 /* ------------------------------------------------------------- statistics */
 .tiles {
   display: grid;

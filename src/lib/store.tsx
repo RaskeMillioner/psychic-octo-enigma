@@ -7,8 +7,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { CellarReview } from './enrichment';
 import type { CellarWine, DiaryEntry, Settings } from '../types';
 import {
+  getReview,
   getSettings,
   listCellar,
   listDiary,
@@ -19,6 +21,8 @@ interface DataStore {
   wines: CellarWine[];
   diary: DiaryEntry[];
   settings: Settings;
+  /** The written verdict from the last enrichment import. */
+  review: CellarReview | null;
   loading: boolean;
   /** Re-reads everything from IndexedDB. Call after any mutation. */
   reload: () => Promise<void>;
@@ -39,17 +43,20 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     webLookup: true,
     currency: 'EUR',
   }));
+  const [review, setReview] = useState<CellarReview | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
-    const [nextWines, nextDiary, nextSettings] = await Promise.all([
+    const [nextWines, nextDiary, nextSettings, nextReview] = await Promise.all([
       listCellar(),
       listDiary(),
       getSettings(),
+      getReview(),
     ]);
     setWines(nextWines);
     setDiary(nextDiary);
     setSettings(nextSettings);
+    setReview(nextReview);
     setLoading(false);
   }, []);
 
@@ -63,8 +70,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [reload]);
 
   const value = useMemo<DataStore>(
-    () => ({ wines, diary, settings, loading, reload, updateSettings }),
-    [wines, diary, settings, loading, reload, updateSettings],
+    () => ({ wines, diary, settings, review, loading, reload, updateSettings }),
+    [wines, diary, settings, review, loading, reload, updateSettings],
   );
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

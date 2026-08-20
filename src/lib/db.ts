@@ -1,4 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+import type { CellarReview } from './enrichment';
 import type { CellarWine, DiaryEntry, Settings, StoredPhoto } from '../types';
 
 const DB_NAME = 'cellarbook';
@@ -200,6 +201,20 @@ export const saveSettings = async (settings: Settings) => {
   await (await getDb()).put('settings', settings, 'app');
 };
 
+/* ------------------------------------------------------------ cellar review */
+
+/** The written verdict from the last enrichment import, if there was one. */
+export const getReview = async (): Promise<CellarReview | null> =>
+  ((await (await getDb()).get('settings', 'review')) as CellarReview | undefined) ?? null;
+
+export const saveReview = async (review: CellarReview) => {
+  await (await getDb()).put('settings', { ...review, savedAt: now() }, 'review');
+};
+
+export const clearReview = async () => {
+  await (await getDb()).delete('settings', 'review');
+};
+
 /* ------------------------------------------------------------ backup / IO */
 
 export interface Backup {
@@ -258,6 +273,8 @@ export const importBackup = async (backup: Backup) => {
 
 export const clearAllData = async () => {
   const db = await getDb();
+  // The review describes wines that are about to stop existing.
+  await db.delete('settings', 'review');
   const tx = db.transaction(['wines', 'diary', 'photos'], 'readwrite');
   await tx.objectStore('wines').clear();
   await tx.objectStore('diary').clear();

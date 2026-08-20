@@ -7,10 +7,12 @@ import {
   RATING_HUE,
   Tile,
 } from '../components/charts';
+import { CellarReviewCard } from '../components/CellarReviewCard';
 import { ChartIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { EmptyState } from '../components/ui';
 import { formatMoney } from '../lib/format';
+import { clearReview } from '../lib/db';
 import { cellarStats, diaryStats } from '../lib/stats';
 import { useData } from '../lib/store';
 
@@ -20,7 +22,7 @@ const bottles = (value: number) => `${value}`;
 const stars = (value: number) => value.toFixed(1);
 
 export const StatsPage = () => {
-  const { wines, diary, settings, loading } = useData();
+  const { wines, diary, settings, review, loading, reload } = useData();
   const [scope, setScope] = useState<Scope>('cellar');
 
   const cellar = useMemo(() => cellarStats(wines, settings.currency), [wines, settings.currency]);
@@ -31,6 +33,15 @@ export const StatsPage = () => {
 
   return (
     <Screen title="Statistics">
+      {review ? (
+        <CellarReviewCard
+          review={review}
+          onClear={() => {
+            void clearReview().then(reload);
+          }}
+        />
+      ) : null}
+
       {/* One scope switch above everything it scopes — never per chart. */}
       <div className="chips" style={{ marginBottom: 16 }}>
         <button

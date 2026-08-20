@@ -182,3 +182,83 @@ test('a file that is not an enrichment file is refused', () => {
   assert.throws(() => mergeEnrichment({ format: 'cellarbook-backup' }, [], []), /not a CellarBook enrichment file/);
   assert.throws(() => mergeEnrichment(null, [], []), /not a CellarBook enrichment file/);
 });
+
+/* ------------------------------------------------------------------ review */
+
+import { sanitiseReview } from '../enrichment.ts';
+
+test('the export shows the whole cellar, not only the wines with gaps', () => {
+  const complete = wine({
+    id: 'w2', country: 'Italy', region: 'Piedmont', appellation: 'Barolo',
+    classification: 'DOCG', grapes: ['Nebbiolo'], wineType: 'Red', abv: 14, quantity: 3,
+  });
+  // A diary entry with nothing missing, so the count isolates the cellar case.
+  const drunk = diaryEntry({
+    rating: 5, country: 'Italy', region: 'Piedmont', appellation: 'Barolo',
+    classification: 'DOCG', grapes: ['Nebbiolo'], wineType: 'Red', abv: 14,
+  });
+  const file = buildEnrichment([wine({}), complete], [drunk]);
+  assert.equal(file.wines.length, 1, 'only the incomplete wine needs filling');
+  assert.equal(file.cellar.length, 2, 'but the review sees both');
+  assert.equal(file.cellar[1].quantity, 3, 'depth is part of the picture');
+  assert.equal(file.drunk[0].rating, 5, 'and so is what was enjoyed');
+});
+
+test('the collection summary still leaves prices and notes at home', () => {
+  const file = buildEnrichment([wine({})], []);
+  const entry = file.cellar[0] as unknown as Record<string, unknown>;
+  for (const forbidden of ['purchasePrice', 'notes', 'photoId', 'storageLocation', 'purchasedFrom']) {
+    assert.equal(entry[forbidden], undefined, `${forbidden} must not leave the app`);
+  }
+});
+
+test('emptied cellar entries are left out of the review picture', () => {
+  const file = buildEnrichment([wine({ id: 'w3', quantity: 0 })], []);
+  assert.equal(file.cellar.length, 0);
+});
+
+test('the instructions ask for a candid review, not just metadata', () => {
+  const file = buildEnrichment([wine({})], []);
+  assert.match(file.instructions, /"strengths"/);
+  assert.match(file.instructions, /"gaps"/);
+  assert.match(file.instructions, /"suggestions"/);
+  assert.match(file.instructions, /candid rather than flattering/i);
+});
+
+test('a review comes back through the merge', () => {
+  const report = mergeEnrichment(
+    {
+      ...enriched([]),
+      review: {
+        summary: 'A Burgundy-heavy cellar with little to drink tonight.',
+        strengths: ['Real depth in white Burgundy'],
+        gaps: ['Almost nothing ready to open'],
+        suggestions: [{ wine: 'Produttori del Barbaresco Barbaresco', why: 'Mature Nebbiolo for now' }],
+      },
+    },
+    [],
+    [],
+  );
+  assert.equal(report.review?.strengths[0], 'Real depth in white Burgundy');
+  assert.equal(report.review?.suggestions[0].wine, 'Produttori del Barbaresco Barbaresco');
+});
+
+test('a malformed review is dropped rather than rendered', () => {
+  assert.equal(sanitiseReview(null), null);
+  assert.equal(sanitiseReview('a lovely cellar'), null);
+  assert.equal(sanitiseReview({ summary: '   ' }), null);
+  assert.equal(sanitiseReview({ strengths: 'not a list' }), null);
+});
+
+test('a review is capped so a runaway reply cannot break the page', () => {
+  const review = sanitiseReview({
+    summary: 'x'.repeat(5000),
+    strengths: Array.from({ length: 40 }, (_, index) => `point ${index}`),
+    suggestions: [{ wine: 'y'.repeat(500), why: 'z'.repeat(900) }, { why: 'no name' }],
+  });
+  assert.equal(review?.summary.length, 1500);
+  assert.equal(review?.strengths.length, 6);
+  assert.equal(review?.suggestions.length, 1, 'a suggestion without a wine is not one');
+  assert.equal(review?.suggestions[0].wine.length, 200);
+  assert.equal(review?.suggestions[0].why.length, 400);
+});

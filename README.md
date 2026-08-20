@@ -107,9 +107,15 @@ in a batch** exports the wines that are missing a region, grape or classificatio
 small JSON file that carries its own instructions. Upload it to any chat with web access,
 ask it to follow the instructions, and import the answer back.
 
-The file is deliberately not a backup: it carries only the metadata that describes each
-wine, so photos, quantities, prices, purchase dates and your own notes never leave the
-device. The merge is blanks-only and keyed by id — a value you already entered is kept, a
+The same file also asks for a **written review of the collection** — what the cellar does
+well, where it is thin, and specific bottles worth buying next, inferred partly from how
+you rated what you have already drunk. That review lands on the Statistics tab above the
+charts, and stays until you clear it or import a newer one.
+
+The file is deliberately not a backup: it carries the metadata that describes each wine
+plus a one-line-per-bottle inventory (with counts and your ratings) so the review judges
+the whole cellar rather than the handful of entries missing a field. Photos, prices,
+purchase details, storage locations and your own notes never leave the device. The merge is blanks-only and keyed by id — a value you already entered is kept, a
 record that is not in this cellar is skipped, and a reply that tries to change a quantity
 or a price is ignored. The import reports how many fields it filled and how many it left
 alone.

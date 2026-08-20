@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { DownloadIcon, SparkleIcon, TrashIcon, UploadIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { Banner, Field, Spinner } from '../components/ui';
-import { clearAllData, exportBackup, importBackup, putCellarWine, putDiaryEntry } from '../lib/db';
+import {
+  clearAllData,
+  exportBackup,
+  importBackup,
+  putCellarWine,
+  putDiaryEntry,
+  saveReview,
+} from '../lib/db';
 import { buildEnrichment, INSTRUCTIONS, mergeEnrichment } from '../lib/enrichment';
 import { ModelPicker } from '../components/ModelPicker';
 import { listClaudeModels } from '../lib/claudeModels';
@@ -114,17 +121,20 @@ export const SettingsPage = () => {
       const report = mergeEnrichment(JSON.parse(await file.text()), wines, diary);
       for (const record of report.wines) await putCellarWine(record);
       for (const record of report.diary) await putDiaryEntry(record);
+      if (report.review) await saveReview(report.review);
       await reload();
+      const touched = report.wines.length + report.diary.length;
       setEnrichStatus(
-        report.filled === 0
-          ? 'Nothing to add — the file had no new values for wines in this cellar.'
-          : [
-              `Filled ${report.filled} ${report.filled === 1 ? 'field' : 'fields'} across ${report.wines.length + report.diary.length} wines.`,
-              report.ignored ? `Left ${report.ignored} alone that already had values.` : '',
-              report.unknown ? `Skipped ${report.unknown} not in this cellar.` : '',
-            ]
-              .filter(Boolean)
-              .join(' '),
+        [
+          report.filled
+            ? `Filled ${report.filled} ${report.filled === 1 ? 'field' : 'fields'} across ${touched} ${touched === 1 ? 'wine' : 'wines'}.`
+            : 'No new values to add.',
+          report.ignored ? `Left ${report.ignored} alone that already had values.` : '',
+          report.unknown ? `Skipped ${report.unknown} not in this cellar.` : '',
+          report.review ? 'The cellar review is on the Statistics tab.' : '',
+        ]
+          .filter(Boolean)
+          .join(' '),
       );
     } catch (error) {
       setEnrichStatus(error instanceof Error ? error.message : 'Could not read that file.');
@@ -323,8 +333,9 @@ export const SettingsPage = () => {
           <div className="small muted">
             Export the wines that are missing a region, grape or classification, upload that file
             to a chat with web access — the Claude app, say — and import the answer back. It fills
-            blanks only: quantities, prices, photos and your notes are never sent and never
-            changed, and values you already entered are kept.
+            blanks only: prices, purchase details, photos and your notes are never sent and never
+            changed, and values you already entered are kept. The file also asks for a written
+            review of the collection, which lands on the Statistics tab.
           </div>
           <div className="row">
             <button

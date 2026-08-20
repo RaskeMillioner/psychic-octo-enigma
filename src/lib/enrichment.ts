@@ -29,12 +29,41 @@ export interface EnrichmentRecord {
   sizeMl: number;
 }
 
+/** One line per bottle, so a review can judge the collection, not a subset. */
+export interface CollectionEntry {
+  producer: string;
+  name: string;
+  vintage: number | null;
+  country: string;
+  region: string;
+  grapes: string[];
+  wineType: string;
+  /** Bottles held — depth matters to a review. Cellar entries only. */
+  quantity?: number;
+  /** For bottles already drunk: what you thought of it. */
+  rating?: number | null;
+  drunkOn?: string;
+}
+
+/** A model's written verdict on the collection. */
+export interface CellarReview {
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  suggestions: { wine: string; why: string }[];
+  /** When it was imported, not when it was written. */
+  savedAt?: string;
+}
+
 export interface EnrichmentFile {
   format: 'cellarbook-enrichment';
   version: 1;
   exportedAt: string;
   instructions: string;
   wines: EnrichmentRecord[];
+  cellar: CollectionEntry[];
+  drunk: CollectionEntry[];
+  review?: CellarReview;
 }
 
 /** Fields a lookup may fill. Producer, name and vintage identify the wine. */
@@ -50,17 +79,25 @@ const FILLABLE = [
 type Fillable = (typeof FILLABLE)[number];
 
 export const INSTRUCTIONS = [
-  'This file lists wines from a personal cellar app. Some fields are missing.',
+  'This file describes a personal wine cellar. It asks for two things: missing metadata filled in, and a written review of the collection.',
   '',
-  'For each wine, search the web for that exact producer, cuvée and vintage, and fill in ONLY the fields that are currently empty: country, region, appellation, classification, grapes, wineType, abv.',
-  '',
-  'Rules:',
+  'PART 1 — fill the gaps in "wines".',
+  'For each entry, search the web for that exact producer, cuvée and vintage, and fill in ONLY the fields that are currently empty: country, region, appellation, classification, grapes, wineType, abv.',
   '- Never change producer, name, vintage, id or kind. They identify the wine.',
   '- Never change a field that already has a value.',
   '- Leave a field empty rather than guessing. An empty field is better than a wrong one.',
   '- wineType must be one of: ' + WINE_TYPES.join(', ') + '.',
   '- grapes is an array of variety names. abv is a number like 13.5, or null.',
-  '- Reply with the complete JSON object in the same shape, and nothing else — no commentary, no markdown fence.',
+  '',
+  'PART 2 — add a "review" object judging the collection.',
+  'Read "cellar" (bottles held, with quantities) and "drunk" (bottles already drunk, with ratings) as a whole — not just the entries in "wines" — and write:',
+  '  "summary": two or three sentences on what kind of cellar this is and what it is for.',
+  '  "strengths": 2-5 short points on what it does well — depth, coherence, quality, ageing potential.',
+  '  "gaps": 2-5 short points on what is thin or missing: styles, regions, price bands, drinking windows, anything unbalanced.',
+  '  "suggestions": 3-6 objects of {"wine": "...", "why": "..."} naming specific producers or bottles worth buying next. Use the ratings in "drunk" to infer taste. Say plainly why each one addresses a gap or extends something already enjoyed.',
+  'Be candid rather than flattering — an honest weakness is more useful than praise. Name real, findable wines.',
+  '',
+  'Reply with the complete JSON object in the same shape, including "wines" and "review", and nothing else — no commentary, no markdown fence.',
 ].join('\n');
 
 const isBlank = (record: EnrichmentRecord, field: Fillable): boolean => {
@@ -95,6 +132,18 @@ export interface BuildOptions {
   limit?: number;
 }
 
+const COLLECTION_LIMIT = 400;
+
+const toCollectionEntry = (wine: WineFacts): CollectionEntry => ({
+  producer: wine.producer,
+  name: wine.name,
+  vintage: wine.vintage,
+  country: wine.country,
+  region: wine.region,
+  grapes: [...wine.grapes],
+  wineType: wine.wineType,
+});
+
 export const buildEnrichment = (
   wines: CellarWine[],
   diary: DiaryEntry[],
@@ -111,7 +160,62 @@ export const buildEnrichment = (
     exportedAt: new Date().toISOString(),
     instructions: INSTRUCTIONS,
     wines: records.slice(0, limit),
+    // The whole collection, so the review judges the cellar rather than the
+    // handful of entries that happen to be missing a field. Prices, purchase
+    // details, storage, notes and photos stay on the device.
+    cellar: wines
+      .filter((wine) => wine.quantity > 0)
+      .slice(0, COLLECTION_LIMIT)
+      .map((wine) => ({ ...toCollectionEntry(wine), quantity: wine.quantity })),
+    drunk: diary
+      .slice(0, COLLECTION_LIMIT)
+      .map((entry) => ({
+        ...toCollectionEntry(entry),
+        rating: entry.rating,
+        drunkOn: entry.drunkOn,
+      })),
   };
+};
+
+const text = (value: unknown, max: number): string =>
+  typeof value === 'string' ? value.trim().slice(0, max) : '';
+
+const textList = (value: unknown, max = 6): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((item) => text(item, 400))
+        .filter(Boolean)
+        .slice(0, max)
+    : [];
+
+/**
+ * Keeps a review renderable: a pasted reply is unvalidated text, so lengths are
+ * capped and anything that is not the expected shape is dropped rather than
+ * rendered.
+ */
+export const sanitiseReview = (raw: unknown): CellarReview | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const source = raw as Record<string, unknown>;
+  const review: CellarReview = {
+    summary: text(source.summary, 1500),
+    strengths: textList(source.strengths),
+    gaps: textList(source.gaps),
+    suggestions: Array.isArray(source.suggestions)
+      ? source.suggestions
+          .map((item) => {
+            const entry = (item ?? {}) as Record<string, unknown>;
+            return { wine: text(entry.wine, 200), why: text(entry.why, 400) };
+          })
+          .filter((entry) => entry.wine)
+          .slice(0, 8)
+      : [],
+  };
+  const empty =
+    !review.summary &&
+    review.strengths.length === 0 &&
+    review.gaps.length === 0 &&
+    review.suggestions.length === 0;
+  return empty ? null : review;
 };
 
 export interface MergeReport {
@@ -124,6 +228,8 @@ export interface MergeReport {
   unknown: number;
   /** Values the reply changed that were already set, and so were ignored. */
   ignored: number;
+  /** The written verdict, when the reply included one. */
+  review: CellarReview | null;
 }
 
 const cleanString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
@@ -209,5 +315,6 @@ export const mergeEnrichment = (
     filled,
     unknown,
     ignored,
+    review: sanitiseReview((parsed as { review?: unknown }).review),
   };
 };
