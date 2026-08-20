@@ -4,11 +4,17 @@ import { selectScanModel } from '../scanGemini.ts';
 
 const models = (...ids: string[]) => ids.map((id) => ({ id, label: id }));
 
-test('prefers a stable -latest alias', () => {
+test('prefers a concrete model over a -latest alias', () => {
+  // An alias can resolve to a model with no free quota, and the failure then
+  // names a model the account's dashboard never mentions.
   assert.equal(
     selectScanModel(models('gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash')),
-    'gemini-flash-latest',
+    'gemini-2.5-flash',
   );
+});
+
+test('falls back to an alias only when nothing concrete is offered', () => {
+  assert.equal(selectScanModel(models('gemini-flash-latest')), 'gemini-flash-latest');
 });
 
 test('otherwise takes the newest flash version', () => {
@@ -74,10 +80,24 @@ test('a zero free-tier quota is reported as permanent, with a way out', async ()
   );
   assert.equal(error.exhausted, true);
   const text = describeError(error, 'gemini-3.5-flash');
-  assert.match(text, /no free-tier quota/);
-  assert.match(text, /will not clear by waiting/);
-  assert.match(text, /Load models/);
+  assert.match(text, /no quota available/);
+  assert.match(text, /pick a different model/i);
   assert.match(text, /gemini-3\.5-flash/);
+});
+
+test('a quota error with no retry time is not reported as something to wait out', async () => {
+  // Exactly the shape Google returns when a model is not on the key's free
+  // tier: no retryDelay, no limit figure, usage sitting at zero.
+  const error = await readError(
+    errorResponse(429, {
+      error: { message: 'You exceeded your current quota, please check your plan and billing details.' },
+    }),
+  );
+  assert.equal(error.exhausted, true);
+  const text = describeError(error, 'gemini-flash-latest');
+  assert.match(text, /no quota available/);
+  assert.match(text, /not on your free tier, or not in your region/);
+  assert.doesNotMatch(text, /wait a moment/);
 });
 
 test('ordinary throttling is reported as a wait, with the delay Google gave', async () => {

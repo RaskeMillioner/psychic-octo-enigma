@@ -107,11 +107,16 @@ export const listGeminiModels = async (apiKey: string): Promise<GeminiModel[]> =
  */
 const UNSUITABLE = /(preview|experimental|[-.]exp\b|thinking|live|image|audio|tts|embedding|imagen|veo|learnlm|gemma)/i;
 
-/** Higher is better: a stable `-latest` alias first, then the newest version. */
+/**
+ * Higher is better. Concrete versioned ids beat `-latest` aliases: an alias
+ * resolves to whichever model Google currently points it at, which may be one
+ * with no free-tier allowance — and the failure then reads as a rate limit on a
+ * model the account's dashboard never mentions.
+ */
 const modelScore = (id: string): number => {
-  if (/-latest$/.test(id)) return 1000;
   const version = id.match(/(\d+)(?:[.-](\d+))?/);
-  return version ? Number(version[1]) * 10 + Number(version[2] ?? 0) : 0;
+  const rank = version ? Number(version[1]) * 10 + Number(version[2] ?? 0) : 0;
+  return /-latest$/.test(id) ? rank : rank + 1000;
 };
 
 /**
@@ -165,8 +170,14 @@ export const readError = async (response: Response): Promise<GeminiError> => {
     status: response.status,
     message,
     retryDelay,
-    // Google words a zero free-tier allowance as a limit of 0 rather than a wait.
-    exhausted: /limit:?\s*0\b/i.test(message) || /"?quota_?limit_?value"?\s*[:=]\s*"?0\b/i.test(raw),
+    // Google words a zero free-tier allowance as a limit of 0 rather than a
+    // wait, and a genuine rate limit comes with a retryDelay. A 429 with
+    // neither is the "no allowance for this key or region" case, which no
+    // amount of waiting fixes.
+    exhausted:
+      /limit:?\s*0\b/i.test(message) ||
+      /"?quota_?limit_?value"?\s*[:=]\s*"?0\b/i.test(raw) ||
+      (response.status === 429 && !retryDelay),
   };
 };
 
@@ -182,9 +193,9 @@ export const describeError = (error: GeminiError, model: string): string => {
       return `${model} is not available to your key.${detail}`;
     case 429:
       if (error.exhausted) {
-        return `${model} has no free-tier quota left for your key — this one will not clear by waiting. Open Settings, tap Load models and pick a different model, or switch to Claude.${detail}`;
+        return `${model} has no quota available for your key, and Google gave no retry time — usually that means this model is not on your free tier, or not in your region. Open Settings and pick a different model from the dropdown (one your AI Studio rate-limit page actually lists), or switch to Claude.${detail}`;
       }
-      return `Gemini rate-limited ${model}${error.retryDelay ? `; retry in ${error.retryDelay}` : ' — wait a moment and scan again'}.${detail}`;
+      return `Gemini rate-limited ${model}; retry in ${error.retryDelay}. The free tier allows only a few scans a minute.${detail}`;
     default:
       return `Gemini returned an error (${error.status}) for ${model}.${detail}`;
   }
@@ -281,7 +292,11 @@ export const scanWithGemini = async (
     }
   };
 
-  let usedModel = model.trim() || 'gemini-flash-latest';
+  let usedModel = model.trim();
+  if (!usedModel) {
+    const models = await listGeminiModels(apiKey).catch(() => [] as GeminiModel[]);
+    usedModel = selectScanModel(models) ?? 'gemini-flash-latest';
+  }
   let response = await call(usedModel);
 
   // A model that is missing, or that carries no free quota, is worth stepping

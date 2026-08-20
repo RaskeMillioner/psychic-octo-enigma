@@ -70,11 +70,12 @@ export const ModelPicker = ({ value, onChange, savedKey, draftKey, load, extra }
         label="Model"
         hint={
           models.length
-            ? `${models.length} models your key can use.`
+            ? `${models.length} models your key can use. Pick one your provider's rate-limit page lists, if scans fail on quota.`
             : 'Save your key, then load the models it can use.'
         }
       >
         <select value={value} onChange={(event) => onChange(event.target.value)}>
+          <option value="">Choose automatically</option>
           {/* Whatever is configured stays selectable even before the list loads. */}
           {value && models.every((model) => model.id !== value) ? (
             <option value={value}>{value}</option>

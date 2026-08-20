@@ -185,7 +185,8 @@ const DEFAULT_SETTINGS: Settings = {
   geminiApiKey: '',
   // An alias rather than a pinned version: if it is not available to the key,
   // the scanner asks the API which models are and corrects itself.
-  geminiModel: 'gemini-flash-latest',
+  // Empty means "resolve from the model list on first use" — see scanGemini.
+  geminiModel: '',
   webLookup: true,
   currency: 'EUR',
 };

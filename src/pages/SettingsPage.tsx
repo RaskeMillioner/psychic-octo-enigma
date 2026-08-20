@@ -46,7 +46,7 @@ export const SettingsPage = () => {
       apiKey: draft.apiKey.trim(),
       geminiApiKey: draft.geminiApiKey.trim(),
       claudeModel: draft.claudeModel.trim() || 'claude-opus-5',
-      geminiModel: draft.geminiModel.trim() || 'gemini-flash-latest',
+      geminiModel: draft.geminiModel.trim(),
       currency: draft.currency.trim().toUpperCase() || 'EUR',
     });
     setStatus('Settings saved.');
