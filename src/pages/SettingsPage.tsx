@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { DownloadIcon, SparkleIcon, TrashIcon, UploadIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { Banner, Field, Spinner } from '../components/ui';
+import { formatDate } from '../lib/format';
 import {
   clearAllData,
   exportBackup,
@@ -459,6 +460,10 @@ export const SettingsPage = () => {
           </button>
         )}
       </section>
+
+      <p className="tiny faint center" style={{ marginTop: -6 }}>
+        CellarBook · build {__APP_BUILD__} · {formatDate(__APP_BUILT_AT__)}
+      </p>
     </Screen>
   );
 };

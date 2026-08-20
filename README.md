@@ -120,6 +120,13 @@ record that is not in this cellar is skipped, and a reply that tries to change a
 or a price is ignored. The import reports how many fields it filled and how many it left
 alone.
 
+## Which build am I running?
+
+The foot of the Settings page carries the short git SHA the bundle was built from and the
+date it was built. An installed PWA serves its cached copy until the service worker swaps
+in a new one, so when something looks wrong, that line is what distinguishes "the fix does
+not work" from "the fix has not arrived yet".
+
 ## Where the data lives
 
 Everything is in IndexedDB on the device: wines, diary entries, label photos (stored as

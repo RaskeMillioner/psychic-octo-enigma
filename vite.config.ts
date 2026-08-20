@@ -1,4 +1,22 @@
+import { execSync } from 'node:child_process';
 import { defineConfig } from 'vite';
+
+/**
+ * Stamps the build so a device can say which version it is running — the one
+ * question a cached PWA cannot otherwise answer.
+ */
+const buildId = (): string => {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA.slice(0, 7);
+  try {
+    return execSync('git rev-parse --short HEAD', {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+  } catch {
+    return 'dev';
+  }
+};
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -6,6 +24,10 @@ import { VitePWA } from 'vite-plugin-pwa';
 // static host, a local file server) — routing is hash-based for the same reason.
 export default defineConfig({
   base: './',
+  define: {
+    __APP_BUILD__: JSON.stringify(buildId()),
+    __APP_BUILT_AT__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({
