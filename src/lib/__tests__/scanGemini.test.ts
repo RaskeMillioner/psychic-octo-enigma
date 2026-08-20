@@ -80,9 +80,9 @@ test('a zero free-tier quota is reported as permanent, with a way out', async ()
   );
   assert.equal(error.exhausted, true);
   const text = describeError(error, 'gemini-3.5-flash');
-  assert.match(text, /no quota available/);
-  assert.match(text, /pick a different model/i);
-  assert.match(text, /gemini-3\.5-flash/);
+  assert.match(text, /No quota for gemini-3\.5-flash/);
+  assert.match(text, /not a wait/);
+  assert.match(text, /switch provider/i);
 });
 
 test('a quota error with no retry time is not reported as something to wait out', async () => {
@@ -95,9 +95,11 @@ test('a quota error with no retry time is not reported as something to wait out'
   );
   assert.equal(error.exhausted, true);
   const text = describeError(error, 'gemini-flash-latest');
-  assert.match(text, /no quota available/);
-  assert.match(text, /not on your free tier, or not in your region/);
+  assert.match(text, /No quota for gemini-flash-latest/);
+  assert.match(text, /region/);
   assert.doesNotMatch(text, /wait a moment/);
+  // One cause reported once, not a paragraph repeated per model.
+  assert.equal(text.match(/No quota for/g)?.length, 1);
 });
 
 test('ordinary throttling is reported as a wait, with the delay Google gave', async () => {

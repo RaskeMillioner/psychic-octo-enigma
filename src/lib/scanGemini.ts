@@ -193,7 +193,7 @@ export const describeError = (error: GeminiError, model: string): string => {
       return `${model} is not available to your key.${detail}`;
     case 429:
       if (error.exhausted) {
-        return `${model} has no quota available for your key, and Google gave no retry time — usually that means this model is not on your free tier, or not in your region. Open Settings and pick a different model from the dropdown (one your AI Studio rate-limit page actually lists), or switch to Claude.${detail}`;
+        return `No quota for ${model}, and Google gave no retry time — so this is not a wait. Usually the free tier does not cover your key's project or region; Google excludes some regions, the EEA, UK and Switzerland among them. Attach billing in AI Studio, or switch provider in Settings.${detail}`;
       }
       return `Gemini rate-limited ${model}; retry in ${error.retryDelay}. The free tier allows only a few scans a minute.${detail}`;
     default:
@@ -314,8 +314,13 @@ export const scanWithGemini = async (
 
     if (!response.ok) {
       const second = await readError(response);
+      // Two models failing the same way is one problem, not two: say it once,
+      // naming both, rather than repeating a paragraph.
+      const sameCause = second.status === first.status && second.exhausted === first.exhausted;
       throw new Error(
-        `${describeError(first, previous)} Also tried ${alternative}: ${describeError(second, alternative)}`,
+        sameCause
+          ? describeError(second, `${previous} or ${alternative}`)
+          : `${describeError(first, previous)} Also tried ${alternative}: ${describeError(second, alternative)}`,
       );
     }
   }
