@@ -8,6 +8,7 @@ import { DiaryPage } from './pages/DiaryPage';
 import { ConsumePage } from './pages/ConsumePage';
 import { EditWinePage } from './pages/EditWinePage';
 import { NewDiaryEntryPage } from './pages/NewDiaryEntryPage';
+import { ReceiptScanPage } from './pages/ReceiptScanPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { StatsPage } from './pages/StatsPage';
 import { WineDetailPage } from './pages/WineDetailPage';
@@ -41,6 +42,7 @@ const App = () => (
           <Route path="/" element={<Navigate to="/cellar" replace />} />
           <Route path="/cellar" element={<CellarPage />} />
           <Route path="/cellar/new" element={<AddWinePage />} />
+          <Route path="/cellar/receipt" element={<ReceiptScanPage />} />
           <Route path="/cellar/:id" element={<WineDetailPage />} />
           <Route path="/cellar/:id/edit" element={<EditWinePage />} />
           <Route path="/cellar/:id/consume" element={<ConsumePage />} />

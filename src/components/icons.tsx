@@ -113,3 +113,10 @@ export const UploadIcon = (props: IconProps) => (
     <path d="M12 15V3M7.5 7.5 12 3l4.5 4.5M4 20h16" />
   </svg>
 );
+
+export const ReceiptIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M6 3.5h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4-2 1.4z" />
+    <path d="M9.5 8h5M9.5 12h5" />
+  </svg>
+);

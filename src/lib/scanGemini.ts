@@ -15,6 +15,14 @@ import {
   USER_PROMPT,
   type LabelReading,
 } from './labelFields.ts';
+import {
+  RECEIPT_RESPONSE_SCHEMA,
+  RECEIPT_SYSTEM_PROMPT,
+  RECEIPT_USER_PROMPT,
+  toReceipt,
+  type Receipt,
+  type ReceiptReading,
+} from './receiptFields.ts';
 import type { ScanModel, ScanResult } from './scanTypes.ts';
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -216,18 +224,18 @@ export const describeError = (error: GeminiError, model: string): string => {
  * Gemini 3 on; older models reject the combination, which `scanWithGemini`
  * recovers from by retrying without the tool.
  */
-const requestBody = (data: string, disableThinking: boolean, webLookup: boolean) => ({
-  systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+const requestBody = (task: Task, data: string, disableThinking: boolean, webLookup: boolean) => ({
+  systemInstruction: { parts: [{ text: task.system }] },
   ...(webLookup ? { tools: [{ googleSearch: {} }] } : {}),
   contents: [
     {
       role: 'user',
-      parts: [{ inlineData: { mimeType: 'image/jpeg', data } }, { text: USER_PROMPT }],
+      parts: [{ inlineData: { mimeType: 'image/jpeg', data } }, { text: task.user }],
     },
   ],
   generationConfig: {
     responseMimeType: 'application/json',
-    responseSchema: RESPONSE_SCHEMA,
+    responseSchema: task.schema,
     // Flash models reason by default and spend maxOutputTokens doing it, which
     // can exhaust the budget before any JSON is written. Turn it off for what is
     // an extraction task, and leave room even so.
@@ -245,6 +253,7 @@ interface GeminiResponse {
 }
 
 const callGemini = (
+  task: Task,
   model: string,
   apiKey: string,
   data: string,
@@ -256,7 +265,7 @@ const callGemini = (
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(requestBody(data, disableThinking, webLookup)),
+      body: JSON.stringify(requestBody(task, data, disableThinking, webLookup)),
     },
   );
 
@@ -265,7 +274,28 @@ export interface GeminiScanOutcome extends ScanResult {
   usedModel: string;
 }
 
-/** Reads a label with Gemini, which has a no-cost free tier. */
+/** What a photo is being read for: a wine label, or a merchant's receipt. */
+interface Task {
+  system: string;
+  user: string;
+  schema: object;
+}
+
+const LABEL_TASK: Task = { system: SYSTEM_PROMPT, user: USER_PROMPT, schema: RESPONSE_SCHEMA };
+
+const RECEIPT_TASK: Task = {
+  system: RECEIPT_SYSTEM_PROMPT,
+  user: RECEIPT_USER_PROMPT,
+  schema: RECEIPT_RESPONSE_SCHEMA,
+};
+
+interface GeminiReading<T> {
+  parsed: T;
+  usedModel: string;
+  searched: boolean;
+  lookupRefused: boolean;
+}
+
 /**
  * Set once a grounded request has been refused. Asking again costs a request
  * from a daily allowance that is small enough to matter, so the rest of the
@@ -273,13 +303,19 @@ export interface GeminiScanOutcome extends ScanResult {
  */
 let groundingRefused = false;
 
-export const scanWithGemini = async (
+/**
+ * One photo, one structured answer. Labels and receipts differ only in the
+ * prompt and the schema; the model fallback, the grounding downgrade and the
+ * error wording are the same problem either way and are solved here once.
+ */
+const readWithGemini = async <T>(
+  task: Task,
   photo: Blob,
   apiKey: string,
   model: string,
   webLookup: boolean,
-): Promise<GeminiScanOutcome> => {
-  if (!apiKey) throw new Error('Add your Google AI Studio key in Settings to scan labels.');
+): Promise<GeminiReading<T>> => {
+  if (!apiKey) throw new Error('Add your Google AI Studio key in Settings to scan photos.');
 
   const data = await blobToBase64(photo);
   const tried: string[] = [];
@@ -288,7 +324,7 @@ export const scanWithGemini = async (
   const call = async (candidate: string, disableThinking = true) => {
     if (!tried.includes(candidate)) tried.push(candidate);
     try {
-      return await callGemini(candidate, apiKey, data, disableThinking, searching);
+      return await callGemini(task, candidate, apiKey, data, disableThinking, searching);
     } catch {
       throw new Error('Could not reach the Gemini API. Check your connection and try again.');
     }
@@ -378,22 +414,57 @@ export const scanWithGemini = async (
   }
 
   const raw = candidate?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
-  let reading: LabelReading;
+  let parsed: T;
   try {
-    reading = parseJsonLoosely(raw) as LabelReading;
+    parsed = parseJsonLoosely(raw) as T;
   } catch {
     throw new Error("Couldn't read anything usable from that photo. Try again in better light.");
   }
 
+  return { parsed, usedModel, searched: searching, lookupRefused };
+};
+
+/** Reads a label with Gemini, which has a no-cost free tier. */
+export const scanWithGemini = async (
+  photo: Blob,
+  apiKey: string,
+  model: string,
+  webLookup: boolean,
+): Promise<GeminiScanOutcome> => {
+  const { parsed, usedModel, searched, lookupRefused } = await readWithGemini<LabelReading>(
+    LABEL_TASK,
+    photo,
+    apiKey,
+    model,
+    webLookup,
+  );
+
   return {
-    facts: toFacts(reading, WINE_TYPES),
-    confidence: normaliseConfidence(reading.confidence),
-    notes: typeof reading.notes === 'string' ? reading.notes : '',
-    isWineLabel: reading.isWineLabel !== false,
-    provenance: toProvenance(reading.fields),
-    window: toWindow(reading),
-    searched: searching,
+    facts: toFacts(parsed, WINE_TYPES),
+    confidence: normaliseConfidence(parsed.confidence),
+    notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+    isWineLabel: parsed.isWineLabel !== false,
+    provenance: toProvenance(parsed.fields),
+    window: toWindow(parsed),
+    searched,
     lookupRefused,
     usedModel,
   };
+};
+
+/** Reads a merchant's receipt with Gemini: the same call, a different schema. */
+export const scanReceiptWithGemini = async (
+  photo: Blob,
+  apiKey: string,
+  model: string,
+  webLookup: boolean,
+): Promise<Receipt & { usedModel: string }> => {
+  const { parsed, usedModel } = await readWithGemini<ReceiptReading>(
+    RECEIPT_TASK,
+    photo,
+    apiKey,
+    model,
+    webLookup,
+  );
+  return { ...toReceipt(parsed), usedModel };
 };

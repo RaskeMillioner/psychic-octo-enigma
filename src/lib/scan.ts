@@ -1,4 +1,5 @@
 import type { ScanProvider, Settings } from '../types';
+import type { Receipt } from './receiptFields.ts';
 import type { ScanResult } from './scanTypes.ts';
 
 export type { ScanResult } from './scanTypes.ts';
@@ -55,4 +56,39 @@ export const scanLabel = async (photo: Blob, settings: Settings): Promise<ScanOu
     settings.webLookup,
   );
   return { ...result, provider };
+};
+
+export interface ReceiptOutcome extends Receipt {
+  provider: ScanProvider;
+  /** Set when Gemini answered on a different model than the configured one. */
+  usedModel?: string;
+}
+
+/**
+ * Turns a photographed merchant receipt into a list of bottles to review.
+ * Nothing is written to the cellar here — the review list does that, after the
+ * user has seen what the model made of each line.
+ */
+export const scanReceipt = async (photo: Blob, settings: Settings): Promise<ReceiptOutcome> => {
+  const provider = resolveProvider(settings);
+
+  if (provider === 'gemini') {
+    const { scanReceiptWithGemini } = await import('./scanGemini.ts');
+    const receipt = await scanReceiptWithGemini(
+      photo,
+      settings.geminiApiKey,
+      settings.geminiModel,
+      settings.webLookup,
+    );
+    return { ...receipt, provider };
+  }
+
+  const { scanReceiptWithClaude } = await import('./scanClaude.ts');
+  const receipt = await scanReceiptWithClaude(
+    photo,
+    settings.apiKey,
+    settings.claudeModel,
+    settings.webLookup,
+  );
+  return { ...receipt, provider };
 };

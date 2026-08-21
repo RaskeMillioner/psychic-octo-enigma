@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BottleIcon, PlusIcon, SearchIcon } from '../components/icons';
+import { BottleIcon, CameraIcon, PlusIcon, ReceiptIcon, SearchIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
-import { EmptyState } from '../components/ui';
+import { EmptyState, Sheet } from '../components/ui';
 import { WineCard } from '../components/WineCard';
 import { windowLabel, windowStatus, WINDOW_FILTERS, type WindowStatus } from '../lib/drinkWindow';
 import { originLine, vintageLabel, wineTitle } from '../lib/format';
@@ -49,6 +49,8 @@ export const CellarPage = () => {
   const [readiness, setReadiness] = useState<WindowStatus | ''>('');
   const thisYear = new Date().getFullYear();
   const [showEmpty, setShowEmpty] = useState(false);
+  /** The FAB's menu: a label photo, a whole receipt, or the form itself. */
+  const [adding, setAdding] = useState(false);
 
   const countries = useMemo(
     () => [...new Set(wines.map((wine) => wine.country).filter(Boolean))].sort(),
@@ -207,9 +209,30 @@ export const CellarPage = () => {
         </button>
       ) : null}
 
-      <Link to="/cellar/new" className="fab" aria-label="Add wine">
+      <button
+        type="button"
+        className="fab"
+        aria-label="Add wine"
+        onClick={() => setAdding(true)}
+      >
         <PlusIcon />
-      </Link>
+      </button>
+
+      {adding ? (
+        <Sheet title="Add to your cellar" onDismiss={() => setAdding(false)}>
+          <Link to="/cellar/new" className="btn btn-primary btn-block">
+            <CameraIcon />
+            Photograph a label
+          </Link>
+          <Link to="/cellar/receipt" className="btn btn-block">
+            <ReceiptIcon />
+            Scan a merchant's receipt
+          </Link>
+          <Link to="/cellar/new" className="btn btn-ghost btn-block">
+            Enter it by hand
+          </Link>
+        </Sheet>
+      ) : null}
     </Screen>
   );
 };

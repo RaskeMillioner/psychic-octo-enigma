@@ -192,7 +192,14 @@ a {
   gap: 10px;
 }
 
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .grid-2 > *,
+.grid-3 > *,
 label.field {
   min-width: 0;
 }
@@ -1056,4 +1063,31 @@ select {
 .sheet-text {
   margin: 0 0 14px;
   color: var(--text-muted);
+}
+
+/* --------------------------------------------------------- receipt lines */
+.receipt-line {
+  gap: 10px;
+}
+
+/* A skipped line stays visible — the user may change their mind — but stops
+   competing for attention with the ones that are actually being added. */
+.receipt-line-skipped {
+  opacity: 0.5;
+}
+
+.receipt-keep {
+  gap: 9px;
+  font-weight: 600;
+}
+
+.receipt-keep input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--wine-bright);
+}
+
+.receipt-raw {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-word;
 }

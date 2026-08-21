@@ -9,18 +9,36 @@ import {
   toProvenance,
   toWindow,
   USER_PROMPT,
+  type LabelReading,
 } from './labelFields.ts';
 import { LabelSchema } from './labelSchema';
+import { RECEIPT_SYSTEM_PROMPT, RECEIPT_USER_PROMPT, toReceipt, type Receipt, type ReceiptReading } from './receiptFields.ts';
+import { ReceiptSchema } from './receiptSchema';
 import type { ScanResult } from './scanTypes.ts';
 
-/** Reads a label with Claude, using structured outputs so the reply is typed. */
-export const scanWithClaude = async (
+interface Reading<T> {
+  parsed: T;
+  /** True when the model was able to search the web for this photo. */
+  searched: boolean;
+  /** True when a web lookup was asked for but the account could not use it. */
+  lookupRefused: boolean;
+}
+
+/**
+ * One photo, one structured answer. Labels and receipts differ only in the
+ * prompt and the schema; the model fallback, the web-search retry and the
+ * paused-turn resume are the same problem either way and are solved here once.
+ */
+const readWithClaude = async <T>(
   photo: Blob,
   apiKey: string,
   model: string,
   webLookup: boolean,
-): Promise<ScanResult> => {
-  if (!apiKey) throw new Error('Add your Anthropic API key in Settings to scan labels.');
+  system: string,
+  user: string,
+  schema: Parameters<typeof zodOutputFormat>[0],
+): Promise<Reading<T>> => {
+  if (!apiKey) throw new Error('Add your Anthropic API key in Settings to scan photos.');
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
   const data = await blobToBase64(photo);
@@ -30,7 +48,7 @@ export const scanWithClaude = async (
       role: 'user',
       content: [
         { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data } },
-        { type: 'text', text: USER_PROMPT },
+        { type: 'text', text: user },
       ],
     },
   ];
@@ -42,12 +60,12 @@ export const scanWithClaude = async (
     client.messages.parse({
       model: model || 'claude-opus-5',
       max_tokens: 16000,
-      system: SYSTEM_PROMPT,
+      system,
       messages,
       ...(searching
         ? { tools: [{ type: 'web_search_20260209' as const, name: 'web_search' as const, max_uses: 5 }] }
         : {}),
-      output_config: { format: zodOutputFormat(LabelSchema) },
+      output_config: { format: zodOutputFormat(schema) },
     });
 
   let response;
@@ -83,21 +101,60 @@ export const scanWithClaude = async (
     throw new Error('The model declined to describe this image. Try a clearer photo of the label.');
   }
 
-  const reading = response.parsed_output;
-  if (!reading) {
+  const parsed = response.parsed_output as T | null;
+  if (!parsed) {
     throw new Error("Couldn't read anything usable from that photo. Try again in better light.");
   }
 
+  return { parsed, searched: searching, lookupRefused };
+};
+
+/** Reads a label with Claude, using structured outputs so the reply is typed. */
+export const scanWithClaude = async (
+  photo: Blob,
+  apiKey: string,
+  model: string,
+  webLookup: boolean,
+): Promise<ScanResult> => {
+  const { parsed, searched, lookupRefused } = await readWithClaude<LabelReading>(
+    photo,
+    apiKey,
+    model,
+    webLookup,
+    SYSTEM_PROMPT,
+    USER_PROMPT,
+    LabelSchema,
+  );
+
   return {
-    facts: toFacts(reading, WINE_TYPES),
-    confidence: normaliseConfidence(reading.confidence),
-    notes: reading.notes,
-    isWineLabel: reading.isWineLabel,
-    provenance: toProvenance(reading.fields),
-    window: toWindow(reading),
-    searched: searching,
+    facts: toFacts(parsed, WINE_TYPES),
+    confidence: normaliseConfidence(parsed.confidence),
+    notes: parsed.notes,
+    isWineLabel: parsed.isWineLabel,
+    provenance: toProvenance(parsed.fields),
+    window: toWindow(parsed),
+    searched,
     lookupRefused,
   };
+};
+
+/** Reads a merchant's receipt with Claude: the same call, a different schema. */
+export const scanReceiptWithClaude = async (
+  photo: Blob,
+  apiKey: string,
+  model: string,
+  webLookup: boolean,
+): Promise<Receipt> => {
+  const { parsed } = await readWithClaude<ReceiptReading>(
+    photo,
+    apiKey,
+    model,
+    webLookup,
+    RECEIPT_SYSTEM_PROMPT,
+    RECEIPT_USER_PROMPT,
+    ReceiptSchema,
+  );
+  return toReceipt(parsed);
 };
 
 const describeApiError = (error: unknown): string => {
