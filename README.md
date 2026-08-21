@@ -15,20 +15,25 @@ classification, grape varieties, vintage, bottle size, alcohol, quantity, price,
 date and merchant, drinking window, storage location, notes and a label photo. Search
 across all of it, filter by style or country, sort by producer, vintage or quantity.
 
-**Diary** — what you drank, when, where, with whom, on what occasion, with a rating and a
+**Diary** — what you consumed, when, where, with whom, on what occasion, with a rating and a
 tasting note. A switch marks each bottle as drunk **in private** — a free-text place like
 "Home" — or **at a venue**, which records the restaurant, bar or winery by name along with
 its city and country, so the statistics can group by where you actually drank rather than
 by whatever you typed. Entries logged before venues existed keep working and read as
-private. Marking a bottle as drunk writes the diary entry and decrements the cellar
+private. Marking a bottle as consumed writes the diary entry and decrements the cellar
 quantity in a single database transaction, so the two can never drift apart. A wine that
 runs out stays in the cellar at zero bottles, keeping its history, and can be restocked.
 Wines drunk elsewhere can be logged straight into the diary without ever entering the
 cellar.
 
+**Drinking windows** — the cellar list filters by readiness: ready now, too young, past
+its window, or no window recorded. A wine with no window is never counted as ready, in the
+list or in the statistics — not knowing is not the same as knowing it is ready. Scans and
+the batch enrichment file both ask for the window, so one pass fills them across the cellar.
+
 **Statistics** — bottles, distinct wines, countries and cellar value; bottles by vintage,
-country, style, grape, region and producer; bottles drunk per month over the last year;
-rating distribution and average rating by country and by style; how much you have drunk
+country, style, grape, region and producer; bottles consumed per month over the last year;
+rating distribution and average rating by country and by style; how much you have consumed
 and what it was worth.
 
 ## Filling in a wine

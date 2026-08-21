@@ -18,6 +18,10 @@ export const FIELD_DESCRIPTIONS = {
   wineType: 'Style of the wine.',
   abv: 'Alcohol by volume as a number without the % sign, e.g. "13.5".',
   sizeMl: 'Bottle volume in millilitres, e.g. "750". Default to "750".',
+  drinkFrom:
+    'First year this wine is worth opening, as four digits. Use the producer\'s own advice where you can find it, otherwise the usual maturity for this appellation and vintage. Empty if you have no basis for it.',
+  drinkTo:
+    'Last year this wine is likely to be at its best, as four digits. Empty if you have no basis for it.',
   confidence: 'How confident you are in the identification overall.',
   fields:
     'Where each field came from, one entry per field. "label" = read directly off the photographed label. "web" = found by searching online for this producer and cuvée. "knowledge" = not stated anywhere but implied by the appellation or producer (Chablis means Chardonnay). "guess" = your best attempt but genuinely uncertain, so the user must check it. "none" = you left the field empty. Be honest: mark "guess" rather than "knowledge" whenever you are unsure.',
@@ -59,7 +63,25 @@ export interface LabelReading {
   confidence: 'high' | 'medium' | 'low';
   notes: string;
   fields?: Record<string, string>;
+  drinkFrom?: string;
+  drinkTo?: string;
 }
+
+/** The drinking window, which lives on the cellar record rather than on WineFacts. */
+export interface DrinkWindow {
+  drinkFrom: number | null;
+  drinkTo: number | null;
+}
+
+const year = (value: unknown): number | null => {
+  const text = String(value ?? '').trim();
+  return /^\d{4}$/.test(text) ? Number(text) : null;
+};
+
+export const toWindow = (reading: LabelReading): DrinkWindow => ({
+  drinkFrom: year(reading.drinkFrom),
+  drinkTo: year(reading.drinkTo),
+});
 
 export const CONFIDENCE_LEVELS = ['high', 'medium', 'low'] as const;
 

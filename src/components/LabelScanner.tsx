@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { appellationPatch, findAppellation } from '../lib/appellation';
-import type { Provenance, ProvenanceKey } from '../lib/labelFields';
+import type { DrinkWindow, Provenance, ProvenanceKey } from '../lib/labelFields';
 import { resolvePhotoBlob, type PhotoRef } from '../lib/photos';
 import { PROVIDER_LABELS, providerKey, resolveProvider, scanLabel, type ScanOutcome } from '../lib/scan';
 import { useData } from '../lib/store';
@@ -13,8 +13,11 @@ import { Banner, Spinner } from './ui';
 interface Props {
   photo: PhotoRef;
   onPhotoChange: (ref: PhotoRef) => void;
-  /** Receives the metadata read off the label, and where each field came from. */
-  onFacts: (facts: WineFacts, provenance: Provenance) => void;
+  /**
+   * Receives the metadata read off the label, where each field came from, and
+   * the suggested drinking window — which only the cellar form has a place for.
+   */
+  onFacts: (facts: WineFacts, provenance: Provenance, window?: DrinkWindow) => void;
 }
 
 /**
@@ -59,7 +62,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
       for (const key of Object.keys(patch) as ProvenanceKey[]) provenance[key] = 'knowledge';
 
       setResult(scan);
-      onFacts(facts, provenance);
+      onFacts(facts, provenance, scan.window);
     } catch (scanError) {
       setError(scanError instanceof Error ? scanError.message : 'Scanning failed.');
     } finally {

@@ -71,6 +71,8 @@ test('only wines with something missing are exported', () => {
     grapes: ['Chardonnay'],
     wineType: 'White',
     abv: 13,
+    drinkFrom: 2026,
+    drinkTo: 2036,
   });
   const file = buildEnrichment([wine({}), complete], []);
   assert.deepEqual(file.wines.map((record) => record.id), ['w1']);
@@ -192,6 +194,7 @@ test('the export shows the whole cellar, not only the wines with gaps', () => {
   const complete = wine({
     id: 'w2', country: 'Italy', region: 'Piedmont', appellation: 'Barolo',
     classification: 'DOCG', grapes: ['Nebbiolo'], wineType: 'Red', abv: 14, quantity: 3,
+    drinkFrom: 2026, drinkTo: 2046,
   });
   // A diary entry with nothing missing, so the count isolates the cellar case.
   const drunk = diaryEntry({
@@ -202,7 +205,7 @@ test('the export shows the whole cellar, not only the wines with gaps', () => {
   assert.equal(file.wines.length, 1, 'only the incomplete wine needs filling');
   assert.equal(file.cellar.length, 2, 'but the review sees both');
   assert.equal(file.cellar[1].quantity, 3, 'depth is part of the picture');
-  assert.equal(file.drunk[0].rating, 5, 'and so is what was enjoyed');
+  assert.equal(file.consumed[0].rating, 5, 'and so is what was enjoyed');
 });
 
 test('the collection summary still leaves prices and notes at home', () => {
@@ -281,4 +284,60 @@ test('a review is capped so a runaway reply cannot break the page', () => {
   assert.equal(review?.suggestions.length, 1, 'a suggestion without a wine is not one');
   assert.equal(review?.suggestions[0].wine.length, 200);
   assert.equal(review?.suggestions[0].why.length, 400);
+});
+
+/* --------------------------------------------------------- drinking window */
+
+test('a wine with every field but no drinking window still has a gap', () => {
+  const filled = wine({
+    country: 'France', region: 'Burgundy', appellation: 'Puligny-Montrachet',
+    classification: 'Premier Cru', grapes: ['Chardonnay'], wineType: 'White', abv: 13,
+  });
+  assert.equal(hasGaps(buildEnrichment([filled], []).wines[0] ?? { id: '' } as never), true);
+  assert.equal(buildEnrichment([filled], []).wines.length, 1);
+});
+
+test('the window is asked for on cellar records only', () => {
+  const cellar = buildEnrichment([wine({})], []).wines[0];
+  assert.equal(cellar.drinkFrom, null, 'present and empty, so it reads as a gap');
+  const entry = buildEnrichment([], [diaryEntry({})]).wines[0];
+  assert.equal('drinkFrom' in entry, false, 'a diary entry has nowhere to put one');
+});
+
+test('a returned window fills a blank one', () => {
+  const report = mergeEnrichment(
+    enriched([{ id: 'w1', kind: 'cellar', drinkFrom: 2027, drinkTo: 2040 }]),
+    [wine({})],
+    [],
+  );
+  assert.equal(report.wines[0].drinkFrom, 2027);
+  assert.equal(report.wines[0].drinkTo, 2040);
+  assert.equal(report.filled, 2);
+});
+
+test('a window already recorded is kept', () => {
+  const report = mergeEnrichment(
+    enriched([{ id: 'w1', kind: 'cellar', drinkFrom: 2027 }]),
+    [wine({ drinkFrom: 2024 })],
+    [],
+  );
+  assert.equal(report.wines.length, 0, 'nothing to change');
+  assert.equal(report.ignored, 1);
+});
+
+test('a nonsense year is dropped rather than stored', () => {
+  const report = mergeEnrichment(
+    enriched([{ id: 'w1', kind: 'cellar', drinkFrom: 'soon', drinkTo: 12 }]),
+    [wine({})],
+    [],
+  );
+  assert.equal(report.filled, 0);
+});
+
+test('a complete diary entry is not exported forever for want of a window', () => {
+  const complete = diaryEntry({
+    country: 'Italy', region: 'Piedmont', appellation: 'Barolo', classification: 'DOCG',
+    grapes: ['Nebbiolo'], wineType: 'Red', abv: 14,
+  });
+  assert.equal(buildEnrichment([], [complete]).wines.length, 0);
 });

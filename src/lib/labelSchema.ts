@@ -18,6 +18,8 @@ export const LabelSchema = z.object({
   wineType: z.enum([...WINE_TYPES, 'Unknown']).describe(D.wineType),
   abv: z.string().describe(D.abv),
   sizeMl: z.string().describe(D.sizeMl),
+  drinkFrom: z.string().describe(D.drinkFrom),
+  drinkTo: z.string().describe(D.drinkTo),
   confidence: z.enum(CONFIDENCE_LEVELS).describe(D.confidence),
   notes: z.string().describe(D.notes),
   fields: z

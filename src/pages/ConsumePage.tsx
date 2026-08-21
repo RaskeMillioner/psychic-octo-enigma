@@ -4,12 +4,12 @@ import { DiaryDetailsFields, type DiaryDetails } from '../components/DiaryDetail
 import { BottleIcon, GlassIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { Banner, EmptyState, Spinner } from '../components/ui';
-import { copyPhoto, drinkFromCellar } from '../lib/db';
+import { copyPhoto, consumeFromCellar } from '../lib/db';
 import { todayIso, vintageLabel, wineTitle } from '../lib/format';
 import { useData } from '../lib/store';
 import { pickWineFacts } from '../types';
 
-export const DrinkPage = () => {
+export const ConsumePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { wines, loading, reload } = useData();
@@ -34,7 +34,7 @@ export const DrinkPage = () => {
 
   if (!wine) {
     return (
-      <Screen title="Drink a bottle" back>
+      <Screen title="Consume a bottle" back>
         {loading ? null : <EmptyState icon={<BottleIcon />} title="Wine not found" />}
       </Screen>
     );
@@ -48,7 +48,7 @@ export const DrinkPage = () => {
       // The diary keeps its own copy of the label photo so it survives the
       // cellar entry being deleted later.
       const photoId = await copyPhoto(wine.photoId);
-      const entry = await drinkFromCellar(wine.id, {
+      const entry = await consumeFromCellar(wine.id, {
         ...pickWineFacts(wine),
         ...details,
         photoId,
@@ -62,7 +62,7 @@ export const DrinkPage = () => {
   };
 
   return (
-    <Screen title="Drink a bottle" back>
+    <Screen title="Consume a bottle" back>
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="small faint">{wine.producer}</div>
         <div style={{ fontFamily: 'var(--font-display)', fontSize: 18 }}>

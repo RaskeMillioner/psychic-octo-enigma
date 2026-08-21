@@ -27,6 +27,9 @@ export interface EnrichmentRecord {
   wineType: string;
   abv: number | null;
   sizeMl: number;
+  /** Cellar records only — a diary entry has no window to fill. */
+  drinkFrom?: number | null;
+  drinkTo?: number | null;
 }
 
 /** One line per bottle, so a review can judge the collection, not a subset. */
@@ -40,7 +43,7 @@ export interface CollectionEntry {
   wineType: string;
   /** Bottles held — depth matters to a review. Cellar entries only. */
   quantity?: number;
-  /** For bottles already drunk: what you thought of it. */
+  /** For bottles already consumed: what you thought of it. */
   rating?: number | null;
   drunkOn?: string;
 }
@@ -62,7 +65,7 @@ export interface EnrichmentFile {
   instructions: string;
   wines: EnrichmentRecord[];
   cellar: CollectionEntry[];
-  drunk: CollectionEntry[];
+  consumed: CollectionEntry[];
   review?: CellarReview;
 }
 
@@ -75,6 +78,8 @@ const FILLABLE = [
   'grapes',
   'wineType',
   'abv',
+  'drinkFrom',
+  'drinkTo',
 ] as const;
 type Fillable = (typeof FILLABLE)[number];
 
@@ -82,7 +87,8 @@ export const INSTRUCTIONS = [
   'This file describes a personal wine cellar. It asks for two things: missing metadata filled in, and a written review of the collection.',
   '',
   'PART 1 — fill the gaps in "wines".',
-  'For each entry, search the web for that exact producer, cuvée and vintage, and fill in ONLY the fields that are currently empty: country, region, appellation, classification, grapes, wineType, abv.',
+  'For each entry, search the web for that exact producer, cuvée and vintage, and fill in ONLY the fields that are currently empty: country, region, appellation, classification, grapes, wineType, abv, drinkFrom, drinkTo.',
+  '- drinkFrom and drinkTo are the years the wine is worth opening between, as numbers. Use the producer\'s own advice where you can find it, otherwise the usual maturity for that appellation and vintage. Only entries with "kind": "cellar" have them.',
   '- Never change producer, name, vintage, id or kind. They identify the wine.',
   '- Never change a field that already has a value.',
   '- Leave a field empty rather than guessing. An empty field is better than a wrong one.',
@@ -90,11 +96,11 @@ export const INSTRUCTIONS = [
   '- grapes is an array of variety names. abv is a number like 13.5, or null.',
   '',
   'PART 2 — add a "review" object judging the collection.',
-  'Read "cellar" (bottles held, with quantities) and "drunk" (bottles already drunk, with ratings) as a whole — not just the entries in "wines" — and write:',
+  'Read "cellar" (bottles held, with quantities) and "consumed" (bottles already consumed, with ratings) as a whole — not just the entries in "wines" — and write:',
   '  "summary": two or three sentences on what kind of cellar this is and what it is for.',
   '  "strengths": 2-5 short points on what it does well — depth, coherence, quality, ageing potential.',
   '  "gaps": 2-5 short points on what is thin or missing: styles, regions, price bands, drinking windows, anything unbalanced.',
-  '  "suggestions": 3-6 objects of {"wine": "...", "why": "..."} naming specific producers or bottles worth buying next. Use the ratings in "drunk" to infer taste. Say plainly why each one addresses a gap or extends something already enjoyed.',
+  '  "suggestions": 3-6 objects of {"wine": "...", "why": "..."} naming specific producers or bottles worth buying next. Use the ratings in "consumed" to infer taste. Say plainly why each one addresses a gap or extends something already enjoyed.',
   'Be candid rather than flattering — an honest weakness is more useful than praise. Name real, findable wines.',
   '',
   'HOW TO DELIVER IT — this part matters.',
@@ -105,13 +111,19 @@ export const INSTRUCTIONS = [
 ].join('\n');
 
 const isBlank = (record: EnrichmentRecord, field: Fillable): boolean => {
+  // A field the record does not carry at all — the window on a diary entry —
+  // is not a gap; there is nowhere to put an answer.
+  if (!(field in record)) return false;
   const value = record[field];
   if (Array.isArray(value)) return value.length === 0;
   if (typeof value === 'number') return false;
   return !String(value ?? '').trim();
 };
 
-const toRecord = (wine: WineFacts & { id: string }, kind: 'cellar' | 'diary'): EnrichmentRecord => ({
+const toRecord = (
+  wine: WineFacts & { id: string } & Partial<Pick<CellarWine, 'drinkFrom' | 'drinkTo'>>,
+  kind: 'cellar' | 'diary',
+): EnrichmentRecord => ({
   id: wine.id,
   kind,
   producer: wine.producer,
@@ -125,6 +137,7 @@ const toRecord = (wine: WineFacts & { id: string }, kind: 'cellar' | 'diary'): E
   wineType: wine.wineType,
   abv: wine.abv,
   sizeMl: wine.sizeMl,
+  ...(kind === 'cellar' ? { drinkFrom: wine.drinkFrom ?? null, drinkTo: wine.drinkTo ?? null } : {}),
 });
 
 /** True when a lookup has something to add. */
@@ -171,7 +184,7 @@ export const buildEnrichment = (
       .filter((wine) => wine.quantity > 0)
       .slice(0, COLLECTION_LIMIT)
       .map((wine) => ({ ...toCollectionEntry(wine), quantity: wine.quantity })),
-    drunk: diary
+    consumed: diary
       .slice(0, COLLECTION_LIMIT)
       .map((entry) => ({
         ...toCollectionEntry(entry),
@@ -246,6 +259,11 @@ const cleanAbv = (value: unknown): number | null => {
   return Number.isFinite(parsed) && parsed > 0 && parsed < 100 ? parsed : null;
 };
 
+const cleanYear = (value: unknown): number | null => {
+  const text = String(value ?? '').trim();
+  return /^\d{4}$/.test(text) ? Number(text) : null;
+};
+
 const cleanType = (value: unknown): WineType | '' => {
   const text = cleanString(value);
   return (WINE_TYPES as readonly string[]).includes(text) ? (text as WineType) : '';
@@ -304,10 +322,27 @@ export const mergeEnrichment = (
     take('wineType', cleanType(record.wineType), !existing.wineType);
     take('abv', cleanAbv(record.abv), existing.abv === null);
 
-    if (Object.keys(patch).length === 0) continue;
+    // The drinking window is a cellar concept; a diary entry has nowhere to put it.
+    const cellarWine = cellarById.get(id);
+    const windowPatch: Partial<Pick<CellarWine, 'drinkFrom' | 'drinkTo'>> = {};
+    if (cellarWine) {
+      for (const key of ['drinkFrom', 'drinkTo'] as const) {
+        const value = cleanYear(record[key]);
+        if (cellarWine[key] !== null) {
+          if (value !== null && value !== cellarWine[key]) ignored += 1;
+          continue;
+        }
+        if (value !== null) {
+          windowPatch[key] = value;
+          filled += 1;
+        }
+      }
+    }
 
-    if (cellarById.has(id)) {
-      updatedWines.set(id, { ...(existing as CellarWine), ...patch });
+    if (Object.keys(patch).length === 0 && Object.keys(windowPatch).length === 0) continue;
+
+    if (cellarWine) {
+      updatedWines.set(id, { ...cellarWine, ...patch, ...windowPatch });
     } else {
       updatedDiary.set(id, { ...(existing as DiaryEntry), ...patch });
     }

@@ -122,7 +122,7 @@ export const DiaryEntryPage = () => {
     : undefined;
 
   const facts_: [string, string][] = [
-    ['Drunk on', formatDate(entry.drunkOn)],
+    ['Consumed on', formatDate(entry.drunkOn)],
     ...(entry.setting === 'venue'
       ? ([
           ['Venue', entry.venue || '—'],

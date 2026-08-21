@@ -126,12 +126,12 @@ export const deleteDiaryEntry = async (id: string) => {
 };
 
 /**
- * Records a bottle as drunk: writes the diary entry and decrements the cellar
+ * Records a bottle as consumed: writes the diary entry and decrements the cellar
  * quantity in a single transaction so the two can never drift apart.
  * The cellar entry is kept at quantity 0 rather than deleted, so the wine can
  * be restocked and its history stays intact.
  */
-export const drinkFromCellar = async (
+export const consumeFromCellar = async (
   cellarWineId: string,
   entry: Omit<DiaryEntry, 'id' | 'createdAt' | 'updatedAt' | 'cellarWineId'>,
 ): Promise<DiaryEntry> => {

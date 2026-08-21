@@ -5,7 +5,7 @@ import { AddWinePage } from './pages/AddWinePage';
 import { CellarPage } from './pages/CellarPage';
 import { DiaryEntryPage } from './pages/DiaryEntryPage';
 import { DiaryPage } from './pages/DiaryPage';
-import { DrinkPage } from './pages/DrinkPage';
+import { ConsumePage } from './pages/ConsumePage';
 import { EditWinePage } from './pages/EditWinePage';
 import { NewDiaryEntryPage } from './pages/NewDiaryEntryPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -43,7 +43,7 @@ const App = () => (
           <Route path="/cellar/new" element={<AddWinePage />} />
           <Route path="/cellar/:id" element={<WineDetailPage />} />
           <Route path="/cellar/:id/edit" element={<EditWinePage />} />
-          <Route path="/cellar/:id/drink" element={<DrinkPage />} />
+          <Route path="/cellar/:id/consume" element={<ConsumePage />} />
           <Route path="/diary" element={<DiaryPage />} />
           <Route path="/diary/new" element={<NewDiaryEntryPage />} />
           <Route path="/diary/:id" element={<DiaryEntryPage />} />

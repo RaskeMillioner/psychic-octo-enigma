@@ -1,3 +1,4 @@
+import { windowStatus } from './drinkWindow.ts';
 import { placeLabel } from './format.ts';
 import type { CellarWine, DiaryEntry, WineFacts } from '../types';
 
@@ -72,8 +73,10 @@ export const cellarStats = (wines: CellarWine[], fallbackCurrency: string): Cell
   const currency = priced[0]?.currency || fallbackCurrency;
 
   const thisYear = new Date().getFullYear();
+  // A wine with no window recorded is not evidence of readiness, so it is not
+  // counted here — the cellar view draws the same distinction.
   const readyNow = stocked
-    .filter((wine) => (wine.drinkFrom ?? 0) <= thisYear && (wine.drinkTo ?? 9999) >= thisYear)
+    .filter((wine) => windowStatus(wine, thisYear) === 'ready')
     .reduce((sum, wine) => sum + wine.quantity, 0);
 
   const vintages = new Map<string, number>();
@@ -120,7 +123,7 @@ export interface DiaryStats {
   byGrape: Slice[];
   byProducer: Slice[];
   byPlace: Slice[];
-  /** Bottles drunk out rather than at home. */
+  /** Bottles consumed out rather than at home. */
   atVenue: number;
   ratingSpread: Slice[];
   ratingByCountry: Slice[];

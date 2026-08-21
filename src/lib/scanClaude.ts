@@ -7,6 +7,7 @@ import {
   SYSTEM_PROMPT,
   toFacts,
   toProvenance,
+  toWindow,
   USER_PROMPT,
 } from './labelFields.ts';
 import { LabelSchema } from './labelSchema';
@@ -93,6 +94,7 @@ export const scanWithClaude = async (
     notes: reading.notes,
     isWineLabel: reading.isWineLabel,
     provenance: toProvenance(reading.fields),
+    window: toWindow(reading),
     searched: searching,
     lookupRefused,
   };

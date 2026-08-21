@@ -26,7 +26,7 @@ interface Props {
 /** The "when, where and how was it" half of a diary entry. */
 export const DiaryDetailsFields = ({ value, onChange }: Props) => (
   <div className="stack">
-    <Field label="Date drunk">
+    <Field label="Date consumed">
       <input
         type="date"
         value={value.drunkOn}

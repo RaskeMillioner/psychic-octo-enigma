@@ -79,12 +79,15 @@ export const CellarWineForm = ({ initial, initialPhoto, submitLabel, onSubmit }:
       <LabelScanner
         photo={photo}
         onPhotoChange={setPhoto}
-        onFacts={(facts, scanned) => {
+        onFacts={(facts, scanned, window) => {
           setValues((current) => ({
             ...current,
             ...facts,
             // Keep a size the user already chose if the label didn't state one.
             sizeMl: facts.sizeMl || current.sizeMl,
+            // A suggested window fills blanks; anything entered by hand stands.
+            drinkFrom: current.drinkFrom ?? window?.drinkFrom ?? null,
+            drinkTo: current.drinkTo ?? window?.drinkTo ?? null,
           }));
           setProvenance(scanned);
         }}

@@ -4,6 +4,7 @@ import { BottleIcon, PlusIcon, SearchIcon } from '../components/icons';
 import { Screen } from '../components/Screen';
 import { EmptyState } from '../components/ui';
 import { WineCard } from '../components/WineCard';
+import { windowLabel, windowStatus, WINDOW_FILTERS, type WindowStatus } from '../lib/drinkWindow';
 import { originLine, vintageLabel, wineTitle } from '../lib/format';
 import { useData } from '../lib/store';
 import type { CellarWine } from '../types';
@@ -45,6 +46,8 @@ export const CellarPage = () => {
   const [type, setType] = useState('');
   const [country, setCountry] = useState('');
   const [sort, setSort] = useState<SortKey>('added');
+  const [readiness, setReadiness] = useState<WindowStatus | ''>('');
+  const thisYear = new Date().getFullYear();
   const [showEmpty, setShowEmpty] = useState(false);
 
   const countries = useMemo(
@@ -61,6 +64,7 @@ export const CellarPage = () => {
       (wine) =>
         (showEmpty || wine.quantity > 0) &&
         (!type || wine.wineType === type) &&
+        (!readiness || windowStatus(wine, thisYear) === readiness) &&
         (!country || wine.country === country) &&
         matches(wine, query),
     );
@@ -78,7 +82,7 @@ export const CellarPage = () => {
       }
     });
     return sorted;
-  }, [wines, showEmpty, type, country, query, sort]);
+  }, [wines, showEmpty, type, country, query, sort, readiness, thisYear]);
 
   const bottles = visible.reduce((total, wine) => total + wine.quantity, 0);
   const emptyCount = wines.filter((wine) => wine.quantity === 0).length;
@@ -94,6 +98,19 @@ export const CellarPage = () => {
             onChange={(event) => setQuery(event.target.value)}
           />
           <SearchIcon />
+        </div>
+
+        <div className="chips">
+          {WINDOW_FILTERS.map((filter) => (
+            <button
+              key={filter.key || 'any'}
+              type="button"
+              className={`chip${readiness === filter.key ? ' active' : ''}`}
+              onClick={() => setReadiness(filter.key)}
+            >
+              {filter.label}
+            </button>
+          ))}
         </div>
 
         <div className="chips">
@@ -167,7 +184,7 @@ export const CellarPage = () => {
               photoId={wine.photoId}
               producer={wine.producer}
               title={`${wineTitle(wine)} ${vintageLabel(wine.vintage)}`}
-              meta={originLine(wine)}
+              meta={[originLine(wine), windowLabel(wine, thisYear)].filter(Boolean).join(' · ')}
               right={
                 <div className={`qty${wine.quantity === 0 ? ' empty' : ''}`}>
                   <strong>{wine.quantity}</strong>

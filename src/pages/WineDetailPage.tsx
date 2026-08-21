@@ -109,10 +109,10 @@ export const WineDetailPage = () => {
           className="btn btn-primary"
           style={{ flex: 1 }}
           disabled={wine.quantity < 1}
-          onClick={() => navigate(`/cellar/${wine.id}/drink`)}
+          onClick={() => navigate(`/cellar/${wine.id}/consume`)}
         >
           <GlassIcon />
-          Drink a bottle
+          Consume a bottle
         </button>
         <button type="button" className="btn" onClick={() => void addBottle()}>
           + 1 bottle
@@ -141,9 +141,9 @@ export const WineDetailPage = () => {
       ) : null}
 
       <section className="section">
-        <h3 className="section-title">Bottles drunk</h3>
+        <h3 className="section-title">Bottles consumed</h3>
         {history.length === 0 ? (
-          <div className="card muted small">No bottles of this wine drunk yet.</div>
+          <div className="card muted small">No bottles of this wine consumed yet.</div>
         ) : (
           <div className="stack">
             {history.map((entry) => (
@@ -167,7 +167,7 @@ export const WineDetailPage = () => {
         {confirmDelete ? (
           <div className="card stack">
             <div className="small">
-              Delete this wine and its label photo? Diary entries for bottles already drunk are kept.
+              Delete this wine and its label photo? Diary entries for bottles already consumed are kept.
             </div>
             <div className="row">
               <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>

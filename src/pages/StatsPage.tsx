@@ -56,7 +56,7 @@ export const StatsPage = () => {
           className={`chip${scope === 'diary' ? ' active' : ''}`}
           onClick={() => setScope('diary')}
         >
-          Drunk
+          Consumed
         </button>
       </div>
 
@@ -117,22 +117,22 @@ export const StatsPage = () => {
         )
       ) : !hasDiary ? (
         <EmptyState icon={<ChartIcon />} title="No bottles logged yet">
-          Mark a bottle as drunk and your drinking history is charted here.
+          Mark a bottle as consumed and your drinking history is charted here.
         </EmptyState>
       ) : (
         <div className="stack" style={{ gap: 16 }}>
           <div className="tiles">
-            <Tile value={drunk.bottles} label="Bottles drunk" />
-            <Tile value={drunk.thisYear} label={`Drunk in ${new Date().getFullYear()}`} />
+            <Tile value={drunk.bottles} label="Bottles consumed" />
+            <Tile value={drunk.thisYear} label={`Consumed in ${new Date().getFullYear()}`} />
             <Tile
               value={drunk.averageRating === null ? '—' : `${drunk.averageRating.toFixed(1)}★`}
               label="Average rating"
             />
             <Tile
               value={drunk.spend === null ? '—' : formatMoney(drunk.spend, drunk.currency)}
-              label="Value drunk"
+              label="Value consumed"
             />
-            <Tile value={drunk.atVenue} label="Drunk out" />
+            <Tile value={drunk.atVenue} label="Consumed out" />
           </div>
 
           <ChartCard title="Bottles per month" note="The last twelve months.">
@@ -180,7 +180,7 @@ export const StatsPage = () => {
 
           <ChartCard
             title="Where you drank"
-            note={`${drunk.atVenue} of ${drunk.bottles} bottles were drunk out.`}
+            note={`${drunk.atVenue} of ${drunk.bottles} bottles were consumed out.`}
           >
             <RankedBars data={drunk.byPlace} format={bottles} />
           </ChartCard>
