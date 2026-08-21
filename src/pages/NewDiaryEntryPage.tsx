@@ -4,18 +4,19 @@ import { DiaryDetailsFields, type DiaryDetails } from '../components/DiaryDetail
 import { BookIcon } from '../components/icons';
 import { LabelScanner } from '../components/LabelScanner';
 import { Screen } from '../components/Screen';
-import { Banner, Spinner } from '../components/ui';
+import { Banner, Sheet, Spinner } from '../components/ui';
 import { WineFactsFields } from '../components/WineFactsFields';
-import { createDiaryEntry } from '../lib/db';
-import { todayIso } from '../lib/format';
+import { consumeFromCellar, createDiaryEntry } from '../lib/db';
+import { bottleCount, todayIso, wineTitle } from '../lib/format';
+import { findDuplicate } from '../lib/duplicates';
 import { forgetTouched, type Provenance } from '../lib/labelFields';
 import { commitPhoto, type PhotoRef } from '../lib/photos';
 import { useData } from '../lib/store';
-import { emptyWineFacts, type WineFacts } from '../types';
+import { emptyWineFacts, type CellarWine, type WineFacts } from '../types';
 
 /** Logs a wine that never passed through the cellar — a restaurant bottle, a tasting. */
 export const NewDiaryEntryPage = () => {
-  const { settings, reload } = useData();
+  const { settings, wines, reload } = useData();
   const navigate = useNavigate();
   const [facts, setFacts] = useState<WineFacts>(emptyWineFacts());
   const [provenance, setProvenance] = useState<Provenance>({});
@@ -36,6 +37,30 @@ export const NewDiaryEntryPage = () => {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  /**
+   * The cellar entry this wine looks like, while the user says whether the
+   * bottle came out of it. Never assumed: a restaurant bottle of something you
+   * also own must not quietly take one off the rack.
+   */
+  const [inCellar, setInCellar] = useState<CellarWine | null>(null);
+
+  /** Writes the entry, taking the bottle out of the cellar when asked to. */
+  const commit = async (cellarWine: CellarWine | null) => {
+    setInCellar(null);
+    setSaving(true);
+    setError('');
+    try {
+      const photoId = await commitPhoto(photo, null);
+      const entry = cellarWine
+        ? await consumeFromCellar(cellarWine.id, { ...facts, ...details, photoId })
+        : await createDiaryEntry({ ...facts, ...details, cellarWineId: null, photoId });
+      await reload();
+      navigate(`/diary/${entry.id}`, { replace: true });
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Could not save.');
+      setSaving(false);
+    }
+  };
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -43,17 +68,13 @@ export const NewDiaryEntryPage = () => {
       setError('Give the wine at least a producer or a name.');
       return;
     }
-    setSaving(true);
-    setError('');
-    try {
-      const photoId = await commitPhoto(photo, null);
-      const entry = await createDiaryEntry({ ...facts, ...details, cellarWineId: null, photoId });
-      await reload();
-      navigate(`/diary/${entry.id}`, { replace: true });
-    } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : 'Could not save.');
-      setSaving(false);
+    const match = findDuplicate(facts, wines);
+    if (match && match.quantity > 0) {
+      setError('');
+      setInCellar(match);
+      return;
     }
+    await commit(null);
   };
 
   return (
@@ -95,6 +116,30 @@ export const NewDiaryEntryPage = () => {
           Save to diary
         </button>
       </form>
+
+      {inCellar ? (
+        <Sheet
+          title="Take it from your cellar?"
+          description={
+            <>
+              You hold {bottleCount(inCellar.quantity)} of {wineTitle(inCellar)}. If this was one of
+              them, the entry is linked and your stock goes down by one.
+            </>
+          }
+          onDismiss={() => setInCellar(null)}
+        >
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            onClick={() => void commit(inCellar)}
+          >
+            Yes, subtract one bottle
+          </button>
+          <button type="button" className="btn btn-block" onClick={() => void commit(null)}>
+            No, this was another bottle
+          </button>
+        </Sheet>
+      ) : null}
     </Screen>
   );
 };

@@ -34,6 +34,12 @@ export const blankCellarValues = (currency: string): CellarFormValues => ({
   notes: '',
 });
 
+/**
+ * Thrown by an `onSubmit` that stopped to ask the user something and was
+ * dismissed. The form simply becomes editable again — nothing failed.
+ */
+export class SubmitCancelled extends Error {}
+
 const year = (value: string): number | null => {
   const digits = value.replace(/\D/g, '').slice(0, 4);
   return digits ? Number(digits) : null;
@@ -69,6 +75,10 @@ export const CellarWineForm = ({ initial, initialPhoto, submitLabel, onSubmit }:
     try {
       await onSubmit(values, photo);
     } catch (submitError) {
+      if (submitError instanceof SubmitCancelled) {
+        setSaving(false);
+        return;
+      }
       setError(submitError instanceof Error ? submitError.message : 'Could not save.');
       setSaving(false);
     }

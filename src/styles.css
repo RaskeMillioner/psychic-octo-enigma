@@ -1022,3 +1022,38 @@ select {
   height: 100%;
   border-radius: 4px;
 }
+
+/* ---------------------------------------------------------------- sheets */
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 62%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+}
+
+.sheet {
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  max-height: 82vh;
+  overflow-y: auto;
+}
+
+.sheet-title {
+  margin: 0 0 6px;
+  font-size: 19px;
+}
+
+.sheet-text {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+}

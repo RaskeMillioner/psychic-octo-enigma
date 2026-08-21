@@ -71,3 +71,34 @@ export const StarRating = ({
 };
 
 export const Spinner = () => <span className="spinner" aria-hidden />;
+
+/**
+ * A question that has to be answered before the save goes through, anchored to
+ * the bottom of the screen where a thumb already is. Dismissing it — the
+ * backdrop or Escape — cancels, so nothing is written by accident.
+ */
+export const Sheet = ({
+  title,
+  description,
+  onDismiss,
+  children,
+}: {
+  title: string;
+  description?: ReactNode;
+  onDismiss: () => void;
+  children: ReactNode;
+}) => (
+  <div className="sheet-backdrop" role="presentation" onClick={onDismiss}>
+    <div
+      className="sheet"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <h2 className="sheet-title">{title}</h2>
+      {description ? <p className="small sheet-text">{description}</p> : null}
+      <div className="stack">{children}</div>
+    </div>
+  </div>
+);

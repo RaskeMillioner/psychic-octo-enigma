@@ -4,6 +4,10 @@ import { BOTTLE_SIZES, type DiaryEntry, type WineFacts } from '../types.ts';
 export const wineTitle = (wine: WineFacts): string =>
   wine.name || wine.appellation || wine.producer || 'Untitled wine';
 
+/** "1 bottle" / "6 bottles" — the phrasing used wherever stock is quoted. */
+export const bottleCount = (quantity: number): string =>
+  `${quantity} ${quantity === 1 ? 'bottle' : 'bottles'}`;
+
 export const vintageLabel = (vintage: number | null): string => (vintage ? String(vintage) : 'NV');
 
 export const sizeLabel = (ml: number): string => {
