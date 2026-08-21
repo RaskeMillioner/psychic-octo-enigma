@@ -61,13 +61,13 @@ export const DiaryPage = () => {
     <Screen title="Diary">
       <div className="stack" style={{ marginBottom: 14 }}>
         <div className="search">
-          <SearchIcon />
           <input
             type="search"
             value={query}
             placeholder="Search wine, place, occasion…"
             onChange={(event) => setQuery(event.target.value)}
           />
+          <SearchIcon />
         </div>
         <div className="small muted">
           {diary.length} {diary.length === 1 ? 'bottle' : 'bottles'} logged · {drunkThisYear} in{' '}

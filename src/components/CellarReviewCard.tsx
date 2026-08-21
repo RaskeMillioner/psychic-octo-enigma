@@ -9,7 +9,9 @@ interface Props {
 
 /** The written verdict that came back with the last enrichment import. */
 export const CellarReviewCard = ({ review, onClear }: Props) => {
-  const [open, setOpen] = useState(true);
+  // Collapsed by default: the statistics are what the tab is for, and the
+  // review is there when it is wanted.
+  const [open, setOpen] = useState(false);
 
   return (
     <section className="section">
@@ -23,10 +25,9 @@ export const CellarReviewCard = ({ review, onClear }: Props) => {
           </button>
         </div>
 
-        {review.summary ? <p className="review-summary">{review.summary}</p> : null}
-
         {open ? (
           <>
+            {review.summary ? <p className="review-summary">{review.summary}</p> : null}
             {review.strengths.length ? (
               <div>
                 <h4 className="section-title" style={{ margin: '4px 0 6px' }}>

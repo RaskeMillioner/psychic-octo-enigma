@@ -354,7 +354,7 @@ textarea {
  * it exactly as tall as the text field beside it. The value centres itself in
  * the content box, so the vertical padding is not needed.
  */
-input:not([type='file']):not([type='checkbox']):not([type='radio']),
+input:where(:not([type='file']):not([type='checkbox']):not([type='radio'])),
 select {
   height: 46px;
   padding: 0 12px;
@@ -470,18 +470,26 @@ select {
 }
 
 .search input {
-  padding-left: 38px;
+  /* Room for the icon on the right, where it cannot sit under the text. */
+  padding-right: 38px;
 }
 
 .search svg {
   position: absolute;
-  left: 12px;
+  right: 12px;
   top: 50%;
   transform: translateY(-50%);
   width: 17px;
   height: 17px;
   color: var(--text-faint);
   pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+/* Once there is something to clear, the browser's own clear button takes that
+   corner — so the magnifier steps aside rather than crowding it. */
+.search input:not(:placeholder-shown) ~ svg {
+  opacity: 0;
 }
 
 /* ------------------------------------------------------ segmented switch */

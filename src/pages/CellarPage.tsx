@@ -87,13 +87,13 @@ export const CellarPage = () => {
     <Screen title="Cellar">
       <div className="stack" style={{ marginBottom: 14 }}>
         <div className="search">
-          <SearchIcon />
           <input
             type="search"
             value={query}
             placeholder="Search producer, region, grape…"
             onChange={(event) => setQuery(event.target.value)}
           />
+          <SearchIcon />
         </div>
 
         <div className="chips">
