@@ -190,6 +190,9 @@ const DEFAULT_SETTINGS: Settings = {
   geminiModel: '',
   webLookup: true,
   currency: 'EUR',
+  // Dark is how the app has always looked; a light one is a choice, not a
+  // change made on someone's behalf.
+  theme: 'dark',
 };
 
 export const getSettings = async (): Promise<Settings> => {

@@ -101,6 +101,9 @@ export interface StoredPhoto {
 /** Which vision model reads label photos. */
 export type ScanProvider = 'claude' | 'gemini';
 
+/** Appearance: one of the two themes, or whichever the phone is set to. */
+export type ThemePreference = 'dark' | 'light' | 'system';
+
 export interface Settings {
   /** Which provider label scanning uses. */
   scanProvider: ScanProvider;
@@ -114,6 +117,8 @@ export interface Settings {
   webLookup: boolean;
   /** Default currency for new purchases. */
   currency: string;
+  /** Which theme to paint in. */
+  theme: ThemePreference;
 }
 
 export const emptyWineFacts = (): WineFacts => ({

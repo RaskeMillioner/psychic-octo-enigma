@@ -57,6 +57,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        // The iOS launch images are fetched by Safari at install time, not by
+        // the app — precaching a set of full-screen PNGs would only slow the
+        // first load down.
+        globIgnores: ['**/splash-*.png'],
         // The Anthropic SDK chunk is comfortably under this.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },

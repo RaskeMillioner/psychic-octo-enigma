@@ -1,10 +1,18 @@
 /* ---------------------------------------------------------------- tokens */
+
+/*
+ * Dark is the default, and the app is stamped with data-theme by the bootstrap
+ * in index.html before anything paints — "match device" is resolved to one of
+ * the two there rather than by a media query here, so there is one answer to
+ * "which theme is on" and both the app and the tests can read it.
+ */
 :root {
   color-scheme: dark;
 
   --bg: #16110f;
   --bg-raised: #211a18;
   --bg-input: #1b1513;
+  --bg-tooltip: #0f0b0a;
   --line: #362b28;
   --line-strong: #4a3b37;
 
@@ -17,6 +25,18 @@
   --gold: #d9a441;
   --green: #6faa6f;
 
+  /* Banner text sits on a tint of its own hue, so it is stepped per theme. */
+  --banner-error-text: #ffc8d1;
+  --banner-info-text: #f2dfb6;
+  --banner-success-text: #cfe8cf;
+
+  /* Chart hues, validated against this theme's card surface. */
+  --chart-count: #d63755;
+  --chart-rating: #c98500;
+
+  /* Pressed feedback: lighten a dark surface, darken a light one. */
+  --press: 1.25;
+
   --radius: 14px;
   --radius-sm: 9px;
   --shadow: 0 10px 30px rgb(0 0 0 / 45%);
@@ -26,6 +46,43 @@
 
   --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+}
+
+/*
+ * Warm paper rather than grey: the light counterpart of the warm black above,
+ * so the claret and the gold still look at home. Every value that carries text
+ * is stepped for the new background — the accents in particular, which are
+ * bright enough to read on black and far too pale to read on cream.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --bg: #f7f2ee;
+  --bg-raised: #fffdfb;
+  --bg-input: #ffffff;
+  --bg-tooltip: #fffdfb;
+  --line: #e4dad3;
+  --line-strong: #cdbfb7;
+
+  --text: #1c1512;
+  --text-muted: #5f504a;
+  --text-faint: #7d6f69;
+
+  --wine: #a5203c;
+  --wine-bright: #b01e3e;
+  --gold: #8a6410;
+  --green: #2f7a3a;
+
+  --banner-error-text: #8a1330;
+  --banner-info-text: #6d4b06;
+  --banner-success-text: #1f5c28;
+
+  --chart-count: #bf2745;
+  --chart-rating: #b07d10;
+
+  --press: 0.94;
+
+  --shadow: 0 8px 24px rgb(60 40 30 / 12%);
 }
 
 * {
@@ -247,7 +304,7 @@ button {
 }
 
 .btn:active {
-  filter: brightness(1.25);
+  filter: brightness(var(--press));
 }
 
 .btn:disabled {
@@ -258,6 +315,7 @@ button {
 .btn-primary {
   background: var(--wine);
   border-color: var(--wine);
+  /* Sits on the claret fill, which is the same in both themes. */
   color: #fff;
 }
 
@@ -537,6 +595,7 @@ select {
 }
 
 .segmented button.active {
+  /* On the claret thumb in both themes. */
   color: #fff;
   font-weight: 500;
 }
@@ -602,7 +661,7 @@ select {
 }
 
 .wine-card:active {
-  filter: brightness(1.15);
+  filter: brightness(calc(1 + (var(--press) - 1) * 0.6));
 }
 
 .wine-card .thumb {
@@ -716,9 +775,11 @@ select {
 }
 
 .photo-actions .btn {
+  /* Over the photograph itself, so it stays a dark scrim in both themes. */
   background: color-mix(in srgb, #000 62%, transparent);
   backdrop-filter: blur(8px);
   border-color: color-mix(in srgb, #fff 22%, transparent);
+  color: #fff;
 }
 
 /* ---------------------------------------------------------------- detail */
@@ -837,19 +898,19 @@ select {
 .banner-error {
   background: color-mix(in srgb, var(--wine) 16%, transparent);
   border-color: color-mix(in srgb, var(--wine) 45%, transparent);
-  color: #ffc8d1;
+  color: var(--banner-error-text);
 }
 
 .banner-info {
   background: color-mix(in srgb, var(--gold) 11%, transparent);
   border-color: color-mix(in srgb, var(--gold) 34%, transparent);
-  color: #f2dfb6;
+  color: var(--banner-info-text);
 }
 
 .banner-success {
   background: color-mix(in srgb, var(--green) 14%, transparent);
   border-color: color-mix(in srgb, var(--green) 40%, transparent);
-  color: #cfe8cf;
+  color: var(--banner-success-text);
 }
 
 .spinner {
@@ -987,7 +1048,7 @@ select {
 }
 
 .chart-tooltip {
-  background: #0f0b0a;
+  background: var(--bg-tooltip);
   border: 1px solid var(--line-strong);
   border-radius: 8px;
   padding: 7px 10px;
@@ -1090,4 +1151,50 @@ select {
 .receipt-raw {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   word-break: break-word;
+}
+
+/* ---------------------------------------------------------------- splash */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--bg);
+  transition: opacity 0.25s ease;
+}
+
+.splash-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.splash-mark {
+  /* Same share of the width as the iOS launch image, so the app's own splash
+     continues that picture instead of jumping to a different one. */
+  width: min(112px, 28vw);
+  height: auto;
+  margin-bottom: 18px;
+}
+
+.splash-name {
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: -0.01em;
+}
+
+.splash-tagline {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-faint);
+  letter-spacing: 0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .splash {
+    transition: none;
+  }
 }

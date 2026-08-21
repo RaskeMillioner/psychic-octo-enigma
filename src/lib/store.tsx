@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { CellarReview } from './enrichment';
 import type { CellarWine, DiaryEntry, Settings } from '../types';
+import { applyTheme, watchSystemTheme } from './theme.ts';
 import {
   getReview,
   getSettings,
@@ -42,6 +43,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     geminiModel: '',
     webLookup: true,
     currency: 'EUR',
+    theme: 'dark',
   }));
   const [review, setReview] = useState<CellarReview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  // The theme is applied here rather than at each call site, so it follows the
+  // stored preference however it changed — the switch in Settings, a reload, or
+  // an import — and "match device" keeps following the device while it is on.
+  useEffect(() => {
+    applyTheme(settings.theme);
+    if (settings.theme !== 'system') return;
+    return watchSystemTheme(() => applyTheme('system'));
+  }, [settings.theme]);
 
   const value = useMemo<DataStore>(
     () => ({ wines, diary, settings, review, loading, reload, updateSettings }),

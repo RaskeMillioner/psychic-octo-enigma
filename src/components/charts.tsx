@@ -3,11 +3,13 @@ import type { Slice } from '../lib/stats';
 
 /**
  * Single-measure charts use one hue — colour is not carrying identity here, the
- * category labels are. Both hues are validated against the app's chart surface
- * (#211a18) for lightness band, chroma and 3:1 contrast.
+ * category labels are. Each hue is a token rather than a hex because it is
+ * stepped per theme: dark #d63755 / #c98500 on the dark card, light #bf2745 /
+ * #b07d10 on the light one, both sets validated for lightness band, chroma,
+ * colour-vision separation and 3:1 contrast against their own surface.
  */
-export const COUNT_HUE = '#d63755';
-export const RATING_HUE = '#c98500';
+export const COUNT_HUE = 'var(--chart-count)';
+export const RATING_HUE = 'var(--chart-rating)';
 
 export const Tile = ({ value, label }: { value: ReactNode; label: string }) => (
   <div className="tile">

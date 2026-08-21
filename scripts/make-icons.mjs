@@ -14,6 +14,12 @@ const BG = [22, 17, 15, 255];
 const GLASS = [245, 236, 232, 255];
 const WINE = [165, 32, 60, 255];
 
+/** The two themes, for the iOS launch images — see `splash` below. */
+const THEMES = {
+  dark: { bg: BG, glass: GLASS },
+  light: { bg: [247, 242, 238, 255], glass: [28, 21, 18, 255] },
+};
+
 /** Signed coverage of the glass silhouette at a point, in a 512-unit space. */
 const inBowl = (x, y) => (x - 256) ** 2 + (y - 205) ** 2 <= 118 ** 2 && y >= 132;
 const inLiquid = (x, y) => inBowl(x, y) && y >= 196;
@@ -81,16 +87,17 @@ const chunk = (type, data) => {
   return Buffer.concat([length, body, crc]);
 };
 
-const png = (size, pixels) => {
+const png = (width, height, pixels) => {
   const ihdr = Buffer.alloc(13);
-  ihdr.writeUInt32BE(size, 0);
-  ihdr.writeUInt32BE(size, 4);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
   ihdr[8] = 8; // bit depth
   ihdr[9] = 6; // RGBA
-  const raw = Buffer.alloc(size * (size * 4 + 1));
-  for (let y = 0; y < size; y += 1) {
-    raw[y * (size * 4 + 1)] = 0; // no per-scanline filter
-    pixels.copy(raw, y * (size * 4 + 1) + 1, y * size * 4, (y + 1) * size * 4);
+  const stride = width * 4;
+  const raw = Buffer.alloc(height * (stride + 1));
+  for (let y = 0; y < height; y += 1) {
+    raw[y * (stride + 1)] = 0; // no per-scanline filter
+    pixels.copy(raw, y * (stride + 1) + 1, y * stride, (y + 1) * stride);
   }
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -109,8 +116,87 @@ const files = [
 ];
 
 for (const [name, size, inset] of files) {
-  writeFileSync(out(name), png(size, render(size, inset)));
+  writeFileSync(out(name), png(size, size, render(size, inset)));
   console.log(`wrote public/${name} (${size}px)`);
+}
+
+/* --------------------------------------------------------- iOS launch art */
+
+/**
+ * A Home Screen app shows an `apple-touch-startup-image` in the second before
+ * the page paints, and nothing at all if none matches the device — which is the
+ * blank flash CellarBook used to open with. The mark sits at the same share of
+ * the width as `.splash-mark` in styles.css, so the app's own splash continues
+ * this picture rather than replacing it. The name is not drawn here: there is
+ * no font renderer in this script, and the app's splash carries it a moment
+ * later.
+ */
+const splash = (width, height, theme) => {
+  const { bg, glass } = THEMES[theme];
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let index = 0; index < width * height; index += 1) {
+    pixels.set(bg, index * 4);
+  }
+
+  const box = Math.round(width * 0.28);
+  const left = Math.round((width - box) / 2);
+  // Centred on the glass itself, not on its 512-unit box: the artwork sits at
+  // 0.55 of the box's height, and the eye wants it a little above the middle.
+  const top = Math.round(height * 0.46 - box * 0.55);
+  const scale = 512 / box;
+  const SS = 3;
+
+  for (let py = 0; py < box; py += 1) {
+    for (let px = 0; px < box; px += 1) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      for (let sy = 0; sy < SS; sy += 1) {
+        for (let sx = 0; sx < SS; sx += 1) {
+          const x = (px + (sx + 0.5) / SS) * scale;
+          const y = (py + (sy + 0.5) / SS) * scale;
+          const hit = sample(x, y);
+          const colour = hit === WINE ? WINE : hit ? glass : bg;
+          r += colour[0];
+          g += colour[1];
+          b += colour[2];
+        }
+      }
+      const n = SS * SS;
+      const index = ((top + py) * width + left + px) * 4;
+      pixels[index] = Math.round(r / n);
+      pixels[index + 1] = Math.round(g / n);
+      pixels[index + 2] = Math.round(b / n);
+      pixels[index + 3] = 255;
+    }
+  }
+  return pixels;
+};
+
+/**
+ * Portrait iPhone sizes in device pixels. iOS matches on the exact logical size
+ * and pixel ratio, so a size that is not listed gets no launch image at all —
+ * hence covering the range still in use rather than only the newest.
+ */
+const DEVICES = [
+  [1320, 2868],
+  [1290, 2796],
+  [1284, 2778],
+  [1242, 2688],
+  [1206, 2622],
+  [1179, 2556],
+  [1170, 2532],
+  [1125, 2436],
+  [828, 1792],
+  [750, 1334],
+];
+
+for (const [width, height] of DEVICES) {
+  for (const theme of ['dark', 'light']) {
+    const name = `splash-${width}x${height}-${theme}.png`;
+    writeFileSync(out(name), png(width, height, splash(width, height, theme)));
+    console.log(`wrote public/${name}`);
+  }
 }
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">

@@ -1,5 +1,6 @@
 import { HashRouter, NavLink, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import { BookIcon, BottleIcon, ChartIcon, GearIcon } from './components/icons';
+import { Splash } from './components/Splash';
 import { DataProvider } from './lib/store';
 import { AddWinePage } from './pages/AddWinePage';
 import { CellarPage } from './pages/CellarPage';
@@ -36,6 +37,7 @@ const Shell = () => (
 
 const App = () => (
   <DataProvider>
+    <Splash />
     <HashRouter>
       <Routes>
         <Route element={<Shell />}>

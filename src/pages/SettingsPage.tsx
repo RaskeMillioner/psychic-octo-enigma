@@ -14,10 +14,12 @@ import {
 import { buildEnrichment, INSTRUCTIONS, mergeEnrichment } from '../lib/enrichment';
 import { parseJsonLoosely } from '../lib/json';
 import { ModelPicker } from '../components/ModelPicker';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { THEME_OPTIONS } from '../lib/theme';
 import { listClaudeModels } from '../lib/claudeModels';
 import { listGeminiModels } from '../lib/scanGemini';
 import { useData } from '../lib/store';
-import type { ScanProvider, Settings } from '../types';
+import type { ScanProvider, Settings, ThemePreference } from '../types';
 
 const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -53,6 +55,16 @@ export const SettingsPage = () => {
   }, [wines, diary]);
 
   const patch = (next: Partial<Settings>) => setDraft((current) => ({ ...current, ...next }));
+
+  /**
+   * Appearance is the one setting that saves on tap: a theme you have to
+   * confirm is a theme you cannot preview. The rest of the form goes with it so
+   * that nothing typed above is dropped on the way.
+   */
+  const chooseTheme = async (theme: ThemePreference) => {
+    patch({ theme });
+    await updateSettings({ ...draft, theme });
+  };
 
   const save = async () => {
     await updateSettings({
@@ -271,13 +283,26 @@ export const SettingsPage = () => {
 
       <section className="section">
         <h3 className="section-title">Preferences</h3>
-        <Field label="Default currency" hint="Used for new purchases.">
-          <input
-            value={draft.currency}
-            maxLength={3}
-            onChange={(event) => patch({ currency: event.target.value.toUpperCase() })}
-          />
-        </Field>
+        <div className="stack">
+          {/* A plain block, not a Field: a <label> wrapping three buttons
+              hands its text to every one of them as their accessible name. */}
+          <div>
+            <span className="field-label">Appearance</span>
+            <SegmentedControl
+              value={draft.theme}
+              options={THEME_OPTIONS}
+              onChange={(theme) => void chooseTheme(theme)}
+            />
+            <span className="tiny field-hint">Applies straight away — no need to save.</span>
+          </div>
+          <Field label="Default currency" hint="Used for new purchases.">
+            <input
+              value={draft.currency}
+              maxLength={3}
+              onChange={(event) => patch({ currency: event.target.value.toUpperCase() })}
+            />
+          </Field>
+        </div>
       </section>
 
       <button
