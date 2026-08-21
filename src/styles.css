@@ -177,6 +177,26 @@ a {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/*
+ * A skirt below the bar. On iOS a Home Screen app can resolve a bottom-fixed
+ * element against a viewport slightly shorter than the screen, and on a page
+ * that cannot scroll — a cellar or diary short enough to fit — nothing ever
+ * forces that to be recomputed, so the bar sits a little above the bottom edge
+ * with the page showing through beneath it. Carrying the bar's own surface on
+ * past the bottom leaves nothing to show through. When the bar is where it
+ * belongs the skirt is simply off-screen, and a fixed element adds nothing to
+ * the scrollable area, so it costs nothing to have.
+ */
+.app-nav::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 160px;
+  background: inherit;
+}
+
 .app-nav a {
   display: flex;
   flex-direction: column;
