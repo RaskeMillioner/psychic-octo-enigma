@@ -58,7 +58,14 @@ export const DiaryPage = () => {
   const drunkThisYear = diary.filter((entry) => entry.drunkOn.startsWith(String(thisYear))).length;
 
   return (
-    <Screen title="Diary">
+    <Screen
+      title="Diary"
+      fab={
+        <Link to="/diary/new" className="fab" aria-label="Log a wine">
+          <PlusIcon />
+        </Link>
+      }
+    >
       <div className="stack" style={{ marginBottom: 14 }}>
         <div className="search">
           <input
@@ -115,9 +122,6 @@ export const DiaryPage = () => {
         ))
       )}
 
-      <Link to="/diary/new" className="fab" aria-label="Log a wine">
-        <PlusIcon />
-      </Link>
     </Screen>
   );
 };

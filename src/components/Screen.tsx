@@ -8,10 +8,16 @@ interface Props {
   back?: boolean;
   /** Rendered at the right edge of the header. */
   action?: ReactNode;
+  /**
+   * The floating action button, if the page has one. It belongs to the app
+   * frame rather than to the scrolling content, so it keeps its place above the
+   * navigation bar instead of scrolling away with the list.
+   */
+  fab?: ReactNode;
   children: ReactNode;
 }
 
-export const Screen = ({ title, back, action, children }: Props) => {
+export const Screen = ({ title, back, action, fab, children }: Props) => {
   const navigate = useNavigate();
   return (
     <>
@@ -31,6 +37,7 @@ export const Screen = ({ title, back, action, children }: Props) => {
         {action}
       </header>
       <main className="app-main">{children}</main>
+      {fab}
     </>
   );
 };

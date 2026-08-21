@@ -90,7 +90,14 @@ export const CellarPage = () => {
   const emptyCount = wines.filter((wine) => wine.quantity === 0).length;
 
   return (
-    <Screen title="Cellar">
+    <Screen
+      title="Cellar"
+      fab={
+        <button type="button" className="fab" aria-label="Add wine" onClick={() => setAdding(true)}>
+          <PlusIcon />
+        </button>
+      }
+    >
       <div className="stack" style={{ marginBottom: 14 }}>
         <div className="search">
           <input
@@ -209,14 +216,6 @@ export const CellarPage = () => {
         </button>
       ) : null}
 
-      <button
-        type="button"
-        className="fab"
-        aria-label="Add wine"
-        onClick={() => setAdding(true)}
-      >
-        <PlusIcon />
-      </button>
 
       {adding ? (
         <Sheet title="Add to your cellar" onDismiss={() => setAdding(false)}>

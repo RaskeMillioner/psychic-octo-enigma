@@ -107,7 +107,7 @@ body {
 }
 
 #root {
-  min-height: 100%;
+  height: 100%;
 }
 
 h1,
@@ -125,10 +125,22 @@ a {
 }
 
 /* ------------------------------------------------------------ app shell */
+
+/*
+ * The app is a frame the exact height of the page, and the frame scrolls its
+ * middle rather than the document scrolling underneath a floating bar. Sized in
+ * percentages, deliberately: `dvh` and a percentage of the page are not the
+ * same box on iOS, and mixing them left the document taller than the viewport
+ * that `position: fixed` resolves against — which is what stranded the bar
+ * partway up the screen on the pages short enough not to scroll.
+ */
 .app {
-  min-height: 100dvh;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  /* The floating button hangs off the frame, not off the viewport. */
+  position: relative;
 }
 
 .app-header {
@@ -157,17 +169,21 @@ a {
 
 .app-main {
   flex: 1;
-  padding: 16px 16px calc(var(--nav-height) + 40px + env(safe-area-inset-bottom)) 16px;
+  /* min-height: 0 lets a flex child shrink below its content and scroll. */
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* Room for the floating button to sit over, rather than on, the last card. */
+  padding: 16px 16px 96px 16px;
   max-width: 780px;
   width: 100%;
   margin: 0 auto;
 }
 
 .app-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  /* The last row of the frame — not a layer floating over the page. */
+  position: relative;
+  flex: none;
   z-index: 30;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -178,14 +194,11 @@ a {
 }
 
 /*
- * A skirt below the bar. On iOS a Home Screen app can resolve a bottom-fixed
- * element against a viewport slightly shorter than the screen, and on a page
- * that cannot scroll — a cellar or diary short enough to fit — nothing ever
- * forces that to be recomputed, so the bar sits a little above the bottom edge
- * with the page showing through beneath it. Carrying the bar's own surface on
- * past the bottom leaves nothing to show through. When the bar is where it
- * belongs the skirt is simply off-screen, and a fixed element adds nothing to
- * the scrollable area, so it costs nothing to have.
+ * A skirt below the bar, carrying its surface on past the bottom of the frame.
+ * The bar is the last row now, so this only shows if the page itself turns out
+ * shorter than the screen — an inset iOS resolves late, say. Nothing to see
+ * when the frame reaches the bottom, and it cannot add to the scroll: the
+ * frame does not scroll.
  */
 .app-nav::after {
   content: '';
@@ -367,7 +380,9 @@ button {
 }
 
 .fab {
-  position: fixed;
+  /* Absolute inside the frame, so it keeps its distance from the bar however
+     the viewport is measured. */
+  position: absolute;
   right: 18px;
   bottom: calc(var(--nav-height) + 18px + env(safe-area-inset-bottom));
   z-index: 25;
