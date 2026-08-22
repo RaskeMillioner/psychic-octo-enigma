@@ -11,6 +11,7 @@ import {
   putDiaryEntry,
   saveReview,
 } from '../lib/db';
+import { downloadJson } from '../lib/download';
 import { buildEnrichment, INSTRUCTIONS, mergeEnrichment } from '../lib/enrichment';
 import { parseJsonLoosely } from '../lib/json';
 import { ModelPicker } from '../components/ModelPicker';
@@ -114,13 +115,7 @@ export const SettingsPage = () => {
     setBusy(true);
     try {
       const backup = await exportBackup();
-      const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `cellarbook-${backup.exportedAt.slice(0, 10)}.json`;
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadJson(`cellarbook-${backup.exportedAt.slice(0, 10)}.json`, backup);
       setStatus('Backup downloaded.');
     } finally {
       setBusy(false);
@@ -149,13 +144,7 @@ export const SettingsPage = () => {
       setEnrichStatus('Nothing to fill in — every wine already has its region, grapes and the rest.');
       return;
     }
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `cellarbook-gaps-${file.exportedAt.slice(0, 10)}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
+    downloadJson(`cellarbook-gaps-${file.exportedAt.slice(0, 10)}.json`, file, 2);
     setEnrichStatus(
       `Exported ${file.wines.length} ${file.wines.length === 1 ? 'wine' : 'wines'} with gaps. Upload the file to a chat and ask it to follow the instructions inside.`,
     );

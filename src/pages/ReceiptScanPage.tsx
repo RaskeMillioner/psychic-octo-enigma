@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PhotoPicker } from '../components/Photo';
 import { Screen } from '../components/Screen';
-import { Banner, Field, Spinner } from '../components/ui';
+import { Banner, Field, NumberInput, Spinner } from '../components/ui';
 import { ReceiptIcon, SparkleIcon } from '../components/icons';
 import { appellationPatch, findAppellation } from '../lib/appellation';
 import { createCellarWine, putCellarWine } from '../lib/db';
@@ -20,11 +20,6 @@ interface Row extends ReceiptLine {
 }
 
 const digits = (value: string): number => Number(value.replace(/\D/g, '')) || 0;
-
-const money = (value: string): number | null => {
-  const parsed = Number.parseFloat(value.replace(',', '.'));
-  return Number.isFinite(parsed) ? parsed : null;
-};
 
 /**
  * Photographs a merchant's receipt and puts every bottle on it into the cellar
@@ -298,12 +293,9 @@ export const ReceiptScanPage = () => {
                         />
                       </Field>
                       <Field label="Price each">
-                        <input
-                          inputMode="decimal"
-                          value={row.unitPrice ?? ''}
-                          onChange={(event) =>
-                            patchRow(index, { unitPrice: money(event.target.value) })
-                          }
+                        <NumberInput
+                          value={row.unitPrice}
+                          onChange={(unitPrice) => patchRow(index, { unitPrice })}
                         />
                       </Field>
                     </div>

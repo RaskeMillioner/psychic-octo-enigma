@@ -1,6 +1,6 @@
 import type { DiaryEntry } from '../types';
 import { SegmentedControl } from './SegmentedControl';
-import { Field, StarRating } from './ui';
+import { Field, NumberInput, StarRating } from './ui';
 
 export type DiaryDetails = Pick<
   DiaryEntry,
@@ -114,15 +114,7 @@ export const DiaryDetailsFields = ({ value, onChange }: Props) => (
 
     <div className="grid-2">
       <Field label="Price per bottle">
-        <input
-          inputMode="decimal"
-          value={value.price ?? ''}
-          placeholder="45"
-          onChange={(event) => {
-            const parsed = Number.parseFloat(event.target.value.replace(',', '.'));
-            onChange({ price: Number.isFinite(parsed) ? parsed : null });
-          }}
-        />
+        <NumberInput value={value.price} placeholder="45" onChange={(price) => onChange({ price })} />
       </Field>
       <Field label="Currency">
         <input

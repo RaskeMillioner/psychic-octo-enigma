@@ -1,19 +1,28 @@
 import { useEffect, useRef, useState } from 'react';
 import { getPhoto } from '../lib/db';
 import { downscaleImage } from '../lib/image';
-import type { PhotoRef } from '../lib/photos';
+import { storedRef, type PhotoRef } from '../lib/photos';
 import { BottleIcon, CameraIcon, TrashIcon } from './icons';
 
-/** Resolves a photo reference to an object URL, revoking it on change. */
+/**
+ * Resolves a photo reference to an object URL, revoking it on change.
+ *
+ * The effect is keyed on what the reference points at rather than on the
+ * reference object, so a caller may build one inline: keying on the object
+ * would re-run this on every render — revoking the URL the image is showing and
+ * reading the photo again, forever, since each new URL is a new state value.
+ */
 export const usePhotoUrl = (ref: PhotoRef): string | null => {
   const [url, setUrl] = useState<string | null>(null);
+  const kind = ref?.kind ?? 'none';
+  const source = ref === null ? null : ref.kind === 'stored' ? ref.id : ref.blob;
 
   useEffect(() => {
     let revoked = false;
     let objectUrl: string | null = null;
 
     const load = async () => {
-      const blob = ref?.kind === 'new' ? ref.blob : ref ? await getPhoto(ref.id) : null;
+      const blob = source === null ? null : source instanceof Blob ? source : await getPhoto(source);
       if (revoked) return;
       if (!blob) {
         setUrl(null);
@@ -28,17 +37,13 @@ export const usePhotoUrl = (ref: PhotoRef): string | null => {
       revoked = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [ref]);
+  }, [kind, source]);
 
   return url;
 };
 
 export const PhotoThumb = ({ photoId }: { photoId: string | null }) => {
-  const [ref, setRef] = useState<PhotoRef>(null);
-  useEffect(() => {
-    setRef(photoId ? { kind: 'stored', id: photoId } : null);
-  }, [photoId]);
-  const url = usePhotoUrl(ref);
+  const url = usePhotoUrl(storedRef(photoId));
 
   return (
     <div className="thumb">
