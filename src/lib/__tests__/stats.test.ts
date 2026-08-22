@@ -161,3 +161,66 @@ test('venues are grouped by name and city, and counted', () => {
     ],
   );
 });
+
+test('a cellar bought in one currency totals the lot', () => {
+  const stats = cellarStats(
+    [
+      wine({ quantity: 2, purchasePrice: 30, currency: 'EUR' }),
+      wine({ quantity: 1, purchasePrice: 40, currency: 'EUR' }),
+    ],
+    'EUR',
+  );
+  assert.equal(stats.value, 100);
+  assert.equal(stats.currency, 'EUR');
+  assert.equal(stats.mixedCurrency, false);
+  assert.equal(stats.valueCoverage, 1);
+});
+
+test('a cellar bought in two currencies does not add them together', () => {
+  // 300 kroner and 100 euros is not 400 of anything. The bigger pile is the one
+  // reported, and the page says the rest is not in it.
+  const stats = cellarStats(
+    [
+      wine({ quantity: 2, purchasePrice: 50, currency: 'EUR' }),
+      wine({ quantity: 1, purchasePrice: 300, currency: 'NOK' }),
+    ],
+    'EUR',
+  );
+  assert.equal(stats.currency, 'NOK');
+  assert.equal(stats.value, 300);
+  assert.equal(stats.mixedCurrency, true);
+  assert.equal(stats.valueCoverage, 1 / 3);
+});
+
+test('an unpriced cellar reports no value at all', () => {
+  const stats = cellarStats([wine({ quantity: 2 })], 'EUR');
+  assert.equal(stats.value, null);
+  assert.equal(stats.mixedCurrency, false);
+});
+
+test('the last twelve months are counted, in order, including the quiet ones', () => {
+  const now = new Date();
+  const month = (back: number) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - back, 1);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-05`;
+  };
+
+  const stats = diaryStats(
+    [
+      entry({ drunkOn: month(0) }),
+      entry({ drunkOn: month(0) }),
+      entry({ drunkOn: month(3) }),
+      // Older than the window, so it belongs to none of the twelve columns.
+      entry({ drunkOn: month(20) }),
+    ],
+    'EUR',
+  );
+
+  assert.equal(stats.perMonth.length, 12);
+  assert.equal(stats.perMonth[11].value, 2);
+  assert.equal(stats.perMonth[8].value, 1);
+  assert.equal(
+    stats.perMonth.reduce((sum, slice) => sum + slice.value, 0),
+    3,
+  );
+});

@@ -76,10 +76,13 @@ export const StatsPage = () => {
                 label="Cellar value"
               />
             </div>
-            {cellar.value !== null && cellar.valueCoverage < 0.999 ? (
+            {cellar.value !== null && (cellar.valueCoverage < 0.999 || cellar.mixedCurrency) ? (
               <p className="tiny faint" style={{ margin: '-8px 2px 0' }}>
-                Value covers the {Math.round(cellar.valueCoverage * 100)}% of bottles with a
-                recorded price.
+                Value covers the {Math.round(cellar.valueCoverage * 100)}% of bottles priced in{' '}
+                {cellar.currency}
+                {cellar.mixedCurrency
+                  ? ' — bottles bought in another currency are counted separately, and are not in this total.'
+                  : '.'}
               </p>
             ) : null}
 

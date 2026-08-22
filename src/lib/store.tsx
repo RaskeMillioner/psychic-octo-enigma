@@ -11,6 +11,7 @@ import type { CellarReview } from './enrichment';
 import type { CellarWine, DiaryEntry, Settings } from '../types';
 import { applyTheme, watchSystemTheme } from './theme.ts';
 import {
+  DEFAULT_SETTINGS,
   getReview,
   getSettings,
   listCellar,
@@ -35,16 +36,9 @@ const DataContext = createContext<DataStore | null>(null);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [wines, setWines] = useState<CellarWine[]>([]);
   const [diary, setDiary] = useState<DiaryEntry[]>([]);
-  const [settings, setSettings] = useState<Settings>(() => ({
-    scanProvider: 'claude',
-    apiKey: '',
-    claudeModel: 'claude-opus-5',
-    geminiApiKey: '',
-    geminiModel: '',
-    webLookup: true,
-    currency: 'EUR',
-    theme: 'dark',
-  }));
+  // The stored settings, until they have been read; the same defaults the
+  // database falls back to, so the two cannot drift apart.
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [review, setReview] = useState<CellarReview | null>(null);
   const [loading, setLoading] = useState(true);
 

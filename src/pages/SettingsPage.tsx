@@ -18,7 +18,7 @@ import { ModelPicker } from '../components/ModelPicker';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { THEME_OPTIONS } from '../lib/theme';
 import { listClaudeModels } from '../lib/claudeModels';
-import { listGeminiModels } from '../lib/scanGemini';
+import { listGeminiModels } from '../lib/geminiApi';
 import { useData } from '../lib/store';
 import type { ScanProvider, Settings, ThemePreference } from '../types';
 
