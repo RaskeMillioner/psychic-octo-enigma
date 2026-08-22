@@ -1,70 +1,42 @@
 /**
- * How tall the app's frame should be.
+ * The frame is the height of the dynamic viewport, which is a plain CSS
+ * declaration — `100dvh` — everywhere that supports it. This file exists only
+ * for the browsers that do not: iOS before 15.4, where `vh` means the viewport
+ * with the toolbars hidden and so overshoots the visible area.
  *
- * On iOS a Home Screen app can lay out against a box that ends short of the
- * screen — the web view still paints its background over the whole display, but
- * percentages, `dvh` and `position: fixed` all resolve against the shorter one,
- * so anything anchored to the bottom floats above the bottom edge. `screen` is
- * the only measure that describes the display itself, so where it is taller by
- * a plausible margin, that is the frame's height.
- *
- * Only in a standalone app: in a browser tab the space below the viewport is
- * the browser's own chrome, and reaching into it would put the navigation bar
- * underneath the toolbar.
+ * There was a heuristic here that reached the frame down to `screen.height`
+ * whenever a standalone app appeared to be laid out short of the display. It
+ * never fired on the device it was written for — `screen`, `window` and `dvh`
+ * all agreed — and it would misfire on Android, where `screen.height` includes
+ * the system gesture bar. Measuring the viewport is the job; guessing at the
+ * display is not.
  */
-export const frameHeight = ({
-  standalone,
-  innerHeight,
-  screenHeight,
-}: {
-  standalone: boolean;
-  innerHeight: number;
-  screenHeight: number;
-}): number => {
-  const extra = screenHeight - innerHeight;
-  // A sane margin: a status bar and a home indicator, not a rotated screen or a
-  // stale measurement.
-  if (!standalone || extra <= 0 || extra > 200) return innerHeight;
-  return screenHeight;
+
+/** Whether this browser needs a measured height rather than `100dvh`. */
+export const needsMeasuredHeight = (): boolean =>
+  typeof CSS === 'undefined' ||
+  typeof CSS.supports !== 'function' ||
+  !CSS.supports('height', '100dvh');
+
+/** Writes the viewport's height onto the document for the CSS to use. */
+export const applyFrame = (): void => {
+  document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
 };
 
 /**
- * The bar's own bottom padding, keeping its labels clear of the home indicator
- * when the frame reaches past the box iOS laid out against. The safe-area inset
- * is the right answer whenever iOS gives one; this is the fallback for when it
- * reports nothing and the frame is reaching down regardless.
+ * Keeps the fallback current through rotation and any late settling of the
+ * viewport. Where `dvh` is supported this does nothing at all: CSS already has
+ * a better answer than anything measured here, and one that updates itself.
  */
-export const HOME_INDICATOR = 34;
-
-export const frameBottomPadding = (extra: number): number =>
-  extra <= 0 ? 0 : Math.min(extra, HOME_INDICATOR);
-
-const isStandalone = (): boolean =>
-  matchMedia('(display-mode: standalone)').matches ||
-  // iOS's own flag, which predates the media query and is still what a Home
-  // Screen app reports on older versions.
-  (navigator as Navigator & { standalone?: boolean }).standalone === true;
-
-/** Measures the display and writes the frame's dimensions onto the document. */
-export const applyFrame = (): void => {
-  const innerHeight = window.innerHeight;
-  const screenHeight = window.screen.height;
-  const height = frameHeight({ standalone: isStandalone(), innerHeight, screenHeight });
-  const root = document.documentElement;
-  root.style.setProperty('--app-height', `${height}px`);
-  root.style.setProperty('--frame-bottom', `${frameBottomPadding(height - innerHeight)}px`);
-};
-
-/** Keeps it right through rotation and any late settling of the viewport. */
 export const watchFrame = (): (() => void) => {
+  if (!needsMeasuredHeight()) return () => {};
+
   applyFrame();
   const update = () => applyFrame();
   window.addEventListener('resize', update);
   window.addEventListener('orientationchange', update);
-  window.visualViewport?.addEventListener('resize', update);
   return () => {
     window.removeEventListener('resize', update);
     window.removeEventListener('orientationchange', update);
-    window.visualViewport?.removeEventListener('resize', update);
   };
 };

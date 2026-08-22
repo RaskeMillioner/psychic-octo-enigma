@@ -1,29 +1,33 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { frameBottomPadding, frameHeight, HOME_INDICATOR } from '../frame.ts';
+import { needsMeasuredHeight } from '../frame.ts';
 
-const height = (over: Partial<Parameters<typeof frameHeight>[0]> = {}) =>
-  frameHeight({ standalone: true, innerHeight: 763, screenHeight: 852, ...over });
+/** Stands in for the browser's CSS object, which node has no notion of. */
+const withCSS = <T>(value: unknown, run: () => T): T => {
+  const globals = globalThis as { CSS?: unknown };
+  const had = 'CSS' in globals;
+  const previous = globals.CSS;
+  if (value === undefined) delete globals.CSS;
+  else globals.CSS = value;
+  try {
+    return run();
+  } finally {
+    if (had) globals.CSS = previous;
+    else delete globals.CSS;
+  }
+};
 
-test('a standalone app laid out short of the screen fills the screen', () => {
-  assert.equal(height(), 852);
+test('a browser that understands dvh is left to CSS', () => {
+  const supports = (property: string, value: string) =>
+    property === 'height' && value === '100dvh';
+  assert.equal(withCSS({ supports }, needsMeasuredHeight), false);
 });
 
-test('when the two agree, nothing is stretched', () => {
-  assert.equal(height({ innerHeight: 852 }), 852);
-  assert.equal(height({ innerHeight: 900, screenHeight: 852 }), 900, 'never shrinks the viewport');
+test('one that does not gets a measured height instead', () => {
+  assert.equal(withCSS({ supports: () => false }, needsMeasuredHeight), true);
 });
 
-test('a browser tab is left alone — that space is the toolbar', () => {
-  assert.equal(height({ standalone: false }), 763);
-});
-
-test('an implausible difference is not trusted', () => {
-  assert.equal(height({ innerHeight: 400 }), 400, 'a rotated or stale measurement');
-});
-
-test('the bar keeps its labels off the home indicator', () => {
-  assert.equal(frameBottomPadding(89), HOME_INDICATOR, 'capped at the indicator');
-  assert.equal(frameBottomPadding(20), 20, 'a small reach needs only itself');
-  assert.equal(frameBottomPadding(0), 0, 'nothing to clear when nothing was added');
+test('and so does one with no CSS.supports to ask', () => {
+  assert.equal(withCSS({}, needsMeasuredHeight), true);
+  assert.equal(withCSS(undefined, needsMeasuredHeight), true);
 });

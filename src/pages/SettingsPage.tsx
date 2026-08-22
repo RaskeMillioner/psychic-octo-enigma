@@ -45,8 +45,9 @@ const viewportMetrics = (): string => {
     )}`,
     `100dvh        ${dvh}`,
     `safe inset    top ${insetTop} · bottom ${insetBottom}`,
-    `frame        ${getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim() || 'dvh'}`,
+    `frame         ${Math.round(document.querySelector('.app')?.getBoundingClientRect().height ?? 0)}`,
     `bar bottom    ${nav ? Math.round(nav.bottom) : '?'}`,
+    `bar edge      ${nav ? (nav.width > nav.height ? 'bottom bar' : 'side rail') : '?'}`,
     `display mode  ${matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}`,
     `pixel ratio   ${window.devicePixelRatio}`,
   ].join('\n');
