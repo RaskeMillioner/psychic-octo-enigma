@@ -21,6 +21,37 @@ import { listGeminiModels } from '../lib/scanGemini';
 import { useData } from '../lib/store';
 import type { ScanProvider, Settings, ThemePreference } from '../types';
 
+/** What the app believes the screen measures — see the note by the build line. */
+const viewportMetrics = (): string => {
+  // One hidden probe answers both questions CSS can be asked: how tall the
+  // dynamic viewport is, and what the safe-area insets resolve to.
+  const probe = document.createElement('div');
+  probe.style.cssText =
+    'position:absolute;top:0;left:0;width:0;visibility:hidden;height:100dvh;' +
+    'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+  document.body.append(probe);
+  const dvh = Math.round(probe.getBoundingClientRect().height);
+  const style = getComputedStyle(probe);
+  const insetTop = style.paddingTop;
+  const insetBottom = style.paddingBottom;
+  probe.remove();
+
+  const nav = document.querySelector('.app-nav')?.getBoundingClientRect();
+  return [
+    `screen        ${window.screen.width}×${window.screen.height}`,
+    `window        ${window.innerWidth}×${window.innerHeight}`,
+    `visual        ${Math.round(window.visualViewport?.width ?? 0)}×${Math.round(
+      window.visualViewport?.height ?? 0,
+    )}`,
+    `100dvh        ${dvh}`,
+    `safe inset    top ${insetTop} · bottom ${insetBottom}`,
+    `frame        ${getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim() || 'dvh'}`,
+    `bar bottom    ${nav ? Math.round(nav.bottom) : '?'}`,
+    `display mode  ${matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}`,
+    `pixel ratio   ${window.devicePixelRatio}`,
+  ].join('\n');
+};
+
 const formatBytes = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 ** 2) return `${(bytes / 1024).toFixed(0)} kB`;
@@ -45,6 +76,7 @@ export const SettingsPage = () => {
   const [enrichStatus, setEnrichStatus] = useState('');
   const [pasted, setPasted] = useState('');
   const [pasting, setPasting] = useState(false);
+  const [showMetrics, setShowMetrics] = useState(false);
 
   useEffect(() => setDraft(settings), [settings]);
 
@@ -487,8 +519,18 @@ export const SettingsPage = () => {
       </section>
 
       <p className="tiny faint center" style={{ marginTop: -6 }}>
-        CellarBook · build {__APP_BUILD__} · {formatDate(__APP_BUILT_AT__)}
+        <button type="button" className="link-quiet" onClick={() => setShowMetrics((on) => !on)}>
+          CellarBook · build {__APP_BUILD__} · {formatDate(__APP_BUILT_AT__)}
+        </button>
       </p>
+
+      {/* Tap the build line for what the app thinks the screen measures. Bottom
+          bars that float above the bottom edge are always one of these numbers
+          disagreeing with another, and on a phone they are the only way to
+          tell which. */}
+      {showMetrics ? (
+        <pre className="tiny faint metrics">{viewportMetrics()}</pre>
+      ) : null}
     </Screen>
   );
 };
