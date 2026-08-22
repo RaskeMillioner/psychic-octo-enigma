@@ -30,7 +30,7 @@ export const EditWinePage = () => {
         initialPhoto={storedRef(wine.photoId)}
         submitLabel="Save changes"
         onSubmit={async (values, photo) => {
-          const photoId = await commitPhoto(photo, wine.photoId);
+          const photoId = await commitPhoto(photo, wine.photoId, wine.id);
           await putCellarWine({ ...wine, ...values, photoId });
           await reload();
           navigate(`/cellar/${wine.id}`, { replace: true });

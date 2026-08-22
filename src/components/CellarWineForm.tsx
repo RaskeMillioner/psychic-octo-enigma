@@ -4,7 +4,7 @@ import type { PhotoRef } from '../lib/photos';
 import type { CellarWine, WineFacts } from '../types';
 import { emptyWineFacts } from '../types';
 import { LabelScanner } from './LabelScanner';
-import { Banner, Field, Spinner } from './ui';
+import { Banner, Field, NumberInput, Spinner } from './ui';
 import { WineFactsFields } from './WineFactsFields';
 
 export type CellarFormValues = WineFacts &
@@ -132,14 +132,10 @@ export const CellarWineForm = ({ initial, initialPhoto, submitLabel, onSubmit }:
 
           <div className="grid-2">
             <Field label="Price per bottle">
-              <input
-                inputMode="decimal"
-                value={values.purchasePrice ?? ''}
+              <NumberInput
+                value={values.purchasePrice}
                 placeholder="45"
-                onChange={(event) => {
-                  const parsed = Number.parseFloat(event.target.value.replace(',', '.'));
-                  patch({ purchasePrice: Number.isFinite(parsed) ? parsed : null });
-                }}
+                onChange={(purchasePrice) => patch({ purchasePrice })}
               />
             </Field>
             <Field label="Currency">

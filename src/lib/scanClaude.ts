@@ -97,6 +97,12 @@ const readWithClaude = async <T>(
     }
   }
 
+  if (response.stop_reason === 'pause_turn') {
+    throw new Error(
+      'The model kept stopping to search and never finished reading the photo. Turn the web lookup off in Settings and scan again.',
+    );
+  }
+
   if (response.stop_reason === 'refusal') {
     throw new Error('The model declined to describe this image. Try a clearer photo of the label.');
   }

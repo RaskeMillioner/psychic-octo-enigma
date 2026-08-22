@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { parseDecimal } from '../lib/format';
 import { StarIcon } from './icons';
 
 export const Field = ({
@@ -102,3 +103,42 @@ export const Sheet = ({
     </div>
   </div>
 );
+
+/**
+ * A number field that lets you type one.
+ *
+ * Parsing on every keystroke and rendering the number back erases the decimal
+ * point the moment it is typed — "13." parses to 13, which renders as "13" — so
+ * the text stays local while the field is being edited, and only the parsed
+ * value goes up. A value that arrives from elsewhere (a label scan filling the
+ * form) still lands, because it disagrees with what the local text says.
+ */
+export const NumberInput = ({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: number | null;
+  onChange: (next: number | null) => void;
+  placeholder?: string;
+}) => {
+  const [text, setText] = useState(value === null ? '' : String(value));
+
+  useEffect(() => {
+    if (parseDecimal(text) !== value) setText(value === null ? '' : String(value));
+    // Only an outside change is worth following; `text` is this field's own state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <input
+      inputMode="decimal"
+      value={text}
+      placeholder={placeholder}
+      onChange={(event) => {
+        setText(event.target.value);
+        onChange(parseDecimal(event.target.value));
+      }}
+    />
+  );
+};

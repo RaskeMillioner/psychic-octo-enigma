@@ -75,3 +75,26 @@ test('the hint names what was filled', () => {
   assert.match(describePatch({ country: 'France', grapes: ['Gamay'] }), /country and grapes/);
   assert.equal(describePatch({}), '');
 });
+
+test('a first growth is not filed as an ordinary classed growth', () => {
+  // Every wording below is a substring of the one above it, so the order the
+  // patterns are tested in decides the answer.
+  assert.equal(
+    findAppellation('Saint-Émilion Premier Grand Cru Classé')?.classification,
+    'Premier Grand Cru Classé',
+  );
+  assert.equal(
+    findAppellation('Saint-Émilion 1er Grand Cru Classé')?.classification,
+    'Premier Grand Cru Classé',
+  );
+  assert.equal(findAppellation('Pauillac Grand Cru Classé')?.classification, 'Grand Cru Classé');
+  assert.equal(findAppellation('Gevrey-Chambertin 1er Cru')?.classification, 'Premier Cru');
+  assert.equal(findAppellation('Chambertin Grand Cru')?.classification, 'Grand Cru');
+});
+
+test('the appellation is still recognised under its classification', () => {
+  assert.equal(
+    findAppellation('Saint-Émilion Premier Grand Cru Classé')?.entry.region,
+    'Bordeaux',
+  );
+});

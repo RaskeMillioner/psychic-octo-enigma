@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { CellarReview } from './enrichment';
+import { photoInUse } from './photoRefs.ts';
 import type { CellarWine, DiaryEntry, Settings, StoredPhoto } from '../types';
 
 const DB_NAME = 'cellarbook';
@@ -69,12 +70,16 @@ export const createCellarWine = async (
   return record;
 };
 
-/** Deletes the cellar entry and its photo. Diary entries keep their own copy. */
+/**
+ * Deletes the cellar entry and its photo. Diary entries keep their own copy,
+ * and a photo shared with other records — every bottle from one receipt — is
+ * left where it is.
+ */
 export const deleteCellarWine = async (id: string) => {
   const db = await getDb();
   const wine = await db.get('wines', id);
-  if (wine?.photoId) await db.delete('photos', wine.photoId);
   await db.delete('wines', id);
+  if (wine?.photoId) await releasePhoto(wine.photoId);
 };
 
 /* ------------------------------------------------------------------- diary */
@@ -121,8 +126,8 @@ export const createDiaryEntry = async (
 export const deleteDiaryEntry = async (id: string) => {
   const db = await getDb();
   const entry = await db.get('diary', id);
-  if (entry?.photoId) await db.delete('photos', entry.photoId);
   await db.delete('diary', id);
+  if (entry?.photoId) await releasePhoto(entry.photoId);
 };
 
 /**
@@ -170,6 +175,18 @@ export const getPhoto = async (id: string): Promise<Blob | null> => {
 
 export const deletePhoto = async (id: string) => (await getDb()).delete('photos', id);
 
+/**
+ * Drops a photo only once nothing points at it any more. A receipt scan gives
+ * every bottle from one delivery the same photo, so an unconditional delete
+ * would blank the label on all the others.
+ */
+export const releasePhoto = async (id: string, exceptRecordId?: string) => {
+  const db = await getDb();
+  const [wines, diary] = await Promise.all([db.getAll('wines'), db.getAll('diary')]);
+  if (photoInUse(id, [wines, diary], exceptRecordId)) return;
+  await db.delete('photos', id);
+};
+
 /** Duplicates a photo so cellar and diary records own their blobs independently. */
 export const copyPhoto = async (id: string | null): Promise<string | null> => {
   if (!id) return null;
@@ -179,7 +196,7 @@ export const copyPhoto = async (id: string | null): Promise<string | null> => {
 
 /* ---------------------------------------------------------------- settings */
 
-const DEFAULT_SETTINGS: Settings = {
+export const DEFAULT_SETTINGS: Settings = {
   scanProvider: 'claude',
   apiKey: '',
   claudeModel: 'claude-opus-5',
@@ -261,16 +278,27 @@ export const exportBackup = async (): Promise<Backup> => {
 export const importBackup = async (backup: Backup) => {
   if (backup?.format !== 'cellarbook-backup') throw new Error('Not a CellarBook backup file.');
   const db = await getDb();
+
+  // Decoded before the transaction opens, not inside it: awaiting anything that
+  // is not an IndexedDB request lets the event loop turn, and a transaction
+  // with no request in flight commits itself — so a photo decoded mid-import
+  // would land on a transaction that had already closed, after the wines and
+  // the diary had been written.
+  const photos: StoredPhoto[] = await Promise.all(
+    Object.entries(backup.photos ?? {}).map(async ([id, dataUrl]) => ({
+      id,
+      blob: await (await fetch(dataUrl)).blob(),
+      createdAt: now(),
+    })),
+  );
+
   const tx = db.transaction(['wines', 'diary', 'photos'], 'readwrite');
-  for (const wine of backup.wines ?? []) await tx.objectStore('wines').put(wine);
-  for (const entry of backup.diary ?? []) {
-    await tx.objectStore('diary').put(withVenueDefaults(entry));
-  }
-  for (const [id, dataUrl] of Object.entries(backup.photos ?? {})) {
-    const blob = await (await fetch(dataUrl)).blob();
-    await tx.objectStore('photos').put({ id, blob, createdAt: now() });
-  }
-  await tx.done;
+  await Promise.all([
+    ...(backup.wines ?? []).map((wine) => tx.objectStore('wines').put(wine)),
+    ...(backup.diary ?? []).map((entry) => tx.objectStore('diary').put(withVenueDefaults(entry))),
+    ...photos.map((photo) => tx.objectStore('photos').put(photo)),
+    tx.done,
+  ]);
   return { wines: backup.wines?.length ?? 0, diary: backup.diary?.length ?? 0 };
 };
 

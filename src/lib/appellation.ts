@@ -18,8 +18,11 @@ export const normalize = (value: string): string =>
  * classification.
  */
 const CLASSIFICATIONS: [RegExp, string][] = [
+  // Most specific first: the first pattern to match wins, and every wording
+  // below is a substring of the one above it — a premier grand cru classé that
+  // met "grand cru classe" first would be filed a tier too low.
+  [/\b(1er|premier) grand cru classe\b/, 'Premier Grand Cru Classé'],
   [/\bgrand cru classe\b/, 'Grand Cru Classé'],
-  [/\bpremier grand cru classe\b/, 'Premier Grand Cru Classé'],
   [/\b(1er|premier) cru\b/, 'Premier Cru'],
   [/\bgrand cru\b/, 'Grand Cru'],
   [/\bgran reserva\b/, 'Gran Reserva'],

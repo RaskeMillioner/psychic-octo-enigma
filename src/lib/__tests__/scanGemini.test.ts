@@ -64,7 +64,7 @@ test('an empty list yields nothing rather than throwing', () => {
 
 /* ------------------------------------------------------- error reporting */
 
-import { describeError, readError } from '../scanGemini.ts';
+import { describeError, readError } from '../geminiApi.ts';
 
 const errorResponse = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status });

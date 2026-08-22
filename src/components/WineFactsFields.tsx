@@ -4,7 +4,7 @@ import { parseGrapes } from '../lib/format';
 import { ORIGIN_LABELS, type Provenance, type ProvenanceKey } from '../lib/labelFields';
 import { useData } from '../lib/store';
 import { BOTTLE_SIZES, WINE_TYPES, type WineFacts } from '../types';
-import { Field } from './ui';
+import { Field, NumberInput } from './ui';
 
 /** Values already used in the cellar or diary, offered as autocomplete. */
 const useSuggestions = () => {
@@ -189,15 +189,7 @@ export const WineFactsFields = ({ value, onChange, provenance }: Props) => {
           </select>
         </Field>
         <Field label="Alcohol %" {...noteFor('abv')}>
-          <input
-            inputMode="decimal"
-            value={value.abv ?? ''}
-            placeholder="13.5"
-            onChange={(event) => {
-              const parsed = Number.parseFloat(event.target.value.replace(',', '.'));
-              onChange({ abv: Number.isFinite(parsed) ? parsed : null });
-            }}
-          />
+          <NumberInput value={value.abv} placeholder="13.5" onChange={(abv) => onChange({ abv })} />
         </Field>
       </div>
     </div>

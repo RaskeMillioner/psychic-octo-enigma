@@ -16,10 +16,13 @@ export const sizeLabel = (ml: number): string => {
   return ml >= 1000 ? `${(ml / 1000).toFixed(ml % 1000 === 0 ? 0 : 1)} L` : `${ml} ml`;
 };
 
-/** "Chablis · Burgundy, France" — the one-line origin summary used on cards. */
+/** "Chablis · Burgundy · France" — the one-line origin summary used on cards. */
 export const originLine = (wine: WineFacts): string =>
-  [wine.appellation || wine.region, wine.region && wine.appellation ? wine.region : '', wine.country]
+  [wine.appellation, wine.region, wine.country]
+    .map((part) => part.trim())
     .filter(Boolean)
+    // An appellation that repeats its region — "Barolo, Barolo" — reads as a
+    // mistake rather than as detail.
     .filter((part, index, all) => all.indexOf(part) === index)
     .join(' · ');
 
@@ -75,6 +78,16 @@ export const todayIso = (): string => {
   const now = new Date();
   const offset = now.getTimezoneOffset();
   return new Date(now.getTime() - offset * 60_000).toISOString().slice(0, 10);
+};
+
+/**
+ * A number typed by hand: a comma is a decimal point in most of the places this
+ * app is used, and anything that is not a number at all is an empty field
+ * rather than a zero.
+ */
+export const parseDecimal = (input: string): number | null => {
+  const parsed = Number.parseFloat(input.replace(',', '.'));
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 export const parseGrapes = (input: string): string[] =>

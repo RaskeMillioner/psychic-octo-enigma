@@ -7,14 +7,32 @@ import { Banner, EmptyState, Spinner } from '../components/ui';
 import { copyPhoto, consumeFromCellar } from '../lib/db';
 import { todayIso, vintageLabel, wineTitle } from '../lib/format';
 import { useData } from '../lib/store';
-import { pickWineFacts } from '../types';
+import { pickWineFacts, type CellarWine } from '../types';
 
 export const ConsumePage = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const { wines, loading, reload } = useData();
+  const { wines, loading } = useData();
   const wine = wines.find((item) => item.id === id);
 
+  if (!wine) {
+    return (
+      <Screen title="Consume a bottle" back>
+        {loading ? null : <EmptyState icon={<BottleIcon />} title="Wine not found" />}
+      </Screen>
+    );
+  }
+
+  // Keyed on the wine, and mounted only once there is one: the form's opening
+  // values are read from it, and a state initialiser runs once. Reading them in
+  // the page itself would take whatever the cellar held on the first render —
+  // nothing at all, on a reload straight onto this URL — and the price carried
+  // over from the purchase would be lost.
+  return <ConsumeForm key={wine.id} wine={wine} />;
+};
+
+const ConsumeForm = ({ wine }: { wine: CellarWine }) => {
+  const navigate = useNavigate();
+  const { reload } = useData();
   const [details, setDetails] = useState<DiaryDetails>({
     drunkOn: todayIso(),
     setting: 'private',
@@ -26,19 +44,11 @@ export const ConsumePage = () => {
     companions: '',
     rating: null,
     tastingNote: '',
-    price: wine?.purchasePrice ?? null,
-    currency: wine?.currency ?? 'EUR',
+    price: wine.purchasePrice,
+    currency: wine.currency,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  if (!wine) {
-    return (
-      <Screen title="Consume a bottle" back>
-        {loading ? null : <EmptyState icon={<BottleIcon />} title="Wine not found" />}
-      </Screen>
-    );
-  }
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();

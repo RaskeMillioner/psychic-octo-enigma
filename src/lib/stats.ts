@@ -53,6 +53,8 @@ export interface CellarStats {
   value: number | null;
   currency: string;
   valueCoverage: number;
+  /** True when bottles were bought in more than one currency — see `value`. */
+  mixedCurrency: boolean;
   byCountry: Slice[];
   byType: Slice[];
   byRegion: Slice[];
@@ -67,10 +69,24 @@ export const cellarStats = (wines: CellarWine[], fallbackCurrency: string): Cell
   const bottles = stocked.reduce((sum, wine) => sum + wine.quantity, 0);
   const qty = (wine: CellarWine) => wine.quantity;
 
+  // Totalled per currency and reported in the one most of the money is in:
+  // adding kroner to euros gives a number that means nothing, and quietly
+  // labelling the sum with whichever wine happened to come first is worse than
+  // saying the cellar is mixed.
   const priced = stocked.filter((wine) => wine.purchasePrice !== null);
-  const value = priced.reduce((sum, wine) => sum + (wine.purchasePrice ?? 0) * wine.quantity, 0);
-  const pricedBottles = priced.reduce((sum, wine) => sum + wine.quantity, 0);
-  const currency = priced[0]?.currency || fallbackCurrency;
+  const totals = new Map<string, { value: number; bottles: number }>();
+  for (const wine of priced) {
+    const key = wine.currency || fallbackCurrency;
+    const running = totals.get(key) ?? { value: 0, bottles: 0 };
+    running.value += (wine.purchasePrice ?? 0) * wine.quantity;
+    running.bottles += wine.quantity;
+    totals.set(key, running);
+  }
+  const [currency, dominant] = [...totals.entries()].sort(
+    (a, b) => b[1].value - a[1].value || a[0].localeCompare(b[0]),
+  )[0] ?? [fallbackCurrency, { value: 0, bottles: 0 }];
+  const value = dominant.value;
+  const pricedBottles = dominant.bottles;
 
   const thisYear = new Date().getFullYear();
   // A wine with no window recorded is not evidence of readiness, so it is not
@@ -95,6 +111,7 @@ export const cellarStats = (wines: CellarWine[], fallbackCurrency: string): Cell
     value: pricedBottles ? value : null,
     currency,
     valueCoverage: bottles ? pricedBottles / bottles : 0,
+    mixedCurrency: totals.size > 1,
     byCountry: rank(stocked.map((wine) => [wine.country, qty(wine)]), 8),
     byType: rank(stocked.map((wine) => [wine.wineType || 'Unspecified', qty(wine)]), 8, {
       fold: false,
@@ -170,6 +187,13 @@ export const diaryStats = (diary: DiaryEntry[], fallbackCurrency: string): Diary
   const priced = diary.filter((entry) => entry.price !== null);
 
   // Twelve months ending with the current one, so quiet months stay visible.
+  // Counted in one pass rather than a filter of the whole diary per month.
+  const counts = new Map<string, number>();
+  for (const entry of diary) {
+    const key = monthKey(entry.drunkOn);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
   const months: Slice[] = [];
   const cursor = new Date();
   cursor.setDate(1);
@@ -178,7 +202,7 @@ export const diaryStats = (diary: DiaryEntry[], fallbackCurrency: string): Diary
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     months.push({
       label: shortMonth(key),
-      value: diary.filter((entry) => monthKey(entry.drunkOn) === key).length,
+      value: counts.get(key) ?? 0,
       detail: String(date.getFullYear()),
     });
   }

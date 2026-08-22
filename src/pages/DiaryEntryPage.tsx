@@ -63,7 +63,7 @@ export const DiaryEntryPage = () => {
   const save = async () => {
     if (!facts || !details) return;
     try {
-      const photoId = await commitPhoto(photo, entry.photoId);
+      const photoId = await commitPhoto(photo, entry.photoId, entry.id);
       await putDiaryEntry({ ...entry, ...facts, ...details, photoId });
       await reload();
       setEditing(false);
