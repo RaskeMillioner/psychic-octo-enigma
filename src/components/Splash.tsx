@@ -38,8 +38,8 @@ export const Splash = () => {
     <div className={`splash${leaving ? ' splash-leaving' : ''}`} aria-hidden={leaving}>
       {/* The app mark, same geometry as the icon and the iOS launch image. */}
       <svg className="splash-mark" viewBox="0 0 512 512" role="img" aria-label="CellarBook">
-        <path d="M138 132h236a118 118 0 0 1-118 187 118 118 0 0 1-118-187Z" fill="var(--text)" />
-        <path d="M143.5 196h225a118 118 0 0 1-112.5 123A118 118 0 0 1 143.5 196Z" fill="var(--wine)" />
+        <path d="M163.3 132H348.7A118 118 0 1 1 163.3 132Z" fill="var(--text)" />
+        <path d="M138.3 196H373.7A118 118 0 1 1 138.3 196Z" fill="var(--wine)" />
         <rect x="243" y="318" width="26" height="84" fill="var(--text)" />
         <ellipse cx="256" cy="412" rx="80" ry="19" fill="var(--text)" />
       </svg>
