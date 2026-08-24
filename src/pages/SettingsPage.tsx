@@ -3,6 +3,7 @@ import { DownloadIcon, SparkleIcon, TrashIcon, UploadIcon } from '../components/
 import { Screen } from '../components/Screen';
 import { Banner, Field, Spinner } from '../components/ui';
 import { formatDate } from '../lib/format';
+import { frameHeight, measureCss, readDisplay } from '../lib/frame';
 import {
   clearAllData,
   exportBackup,
@@ -24,19 +25,9 @@ import type { ScanProvider, Settings, ThemePreference } from '../types';
 
 /** What the app believes the screen measures — see the note by the build line. */
 const viewportMetrics = (): string => {
-  // One hidden probe answers both questions CSS can be asked: how tall the
-  // dynamic viewport is, and what the safe-area insets resolve to.
-  const probe = document.createElement('div');
-  probe.style.cssText =
-    'position:absolute;top:0;left:0;width:0;visibility:hidden;height:100dvh;' +
-    'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
-  document.body.append(probe);
-  const dvh = Math.round(probe.getBoundingClientRect().height);
-  const style = getComputedStyle(probe);
-  const insetTop = style.paddingTop;
-  const insetBottom = style.paddingBottom;
-  probe.remove();
-
+  const { dvh, insetTop, insetBottom } = measureCss();
+  const display = readDisplay();
+  const frame = frameHeight(display);
   const nav = document.querySelector('.app-nav')?.getBoundingClientRect();
   return [
     `screen        ${window.screen.width}×${window.screen.height}`,
@@ -44,12 +35,14 @@ const viewportMetrics = (): string => {
     `visual        ${Math.round(window.visualViewport?.width ?? 0)}×${Math.round(
       window.visualViewport?.height ?? 0,
     )}`,
-    `100dvh        ${dvh}`,
-    `safe inset    top ${insetTop} · bottom ${insetBottom}`,
+    `100dvh        ${Math.round(dvh)}`,
+    `laid out      ${display.laidOut.width}×${display.laidOut.height}`,
+    `safe inset    top ${insetTop}px · bottom ${insetBottom}px`,
+    `sized by      ${frame.kind === 'screen' ? `screen (${frame.height})` : frame.kind}`,
     `frame         ${Math.round(document.querySelector('.app')?.getBoundingClientRect().height ?? 0)}`,
     `bar bottom    ${nav ? Math.round(nav.bottom) : '?'}`,
     `bar edge      ${nav ? (nav.width > nav.height ? 'bottom bar' : 'side rail') : '?'}`,
-    `display mode  ${matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}`,
+    `display mode  ${display.standalone ? 'standalone' : 'browser'}`,
     `pixel ratio   ${window.devicePixelRatio}`,
   ].join('\n');
 };

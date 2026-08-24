@@ -104,27 +104,45 @@
 }
 
 /*
- * Sized in dvh, not percentages. On iOS a Home Screen app paints its own
- * background over the whole screen, but the box that a percentage height — and
- * `position: fixed` — resolves against can be some ninety pixels shorter than
- * that. Anything anchored to the bottom of the shorter box floats above the
- * bottom of the screen with the page showing through beneath it. The dynamic
- * viewport is the one that means the screen, and it shrinks for browser chrome
- * where there is any, so it is right in a tab as well.
+ * The frame is the height of the visible area, and in a browser that is the
+ * dynamic viewport: it means the screen, and it shrinks for the toolbars where
+ * there are any. A Home Screen app on iOS is the exception — it is painted over
+ * the whole display but can be laid out against a box a status bar shorter, so
+ * `dvh`, a percentage and `position: fixed` all come up short and the bar rests
+ * above the bottom edge. There src/lib/frame.ts sets --app-height from the
+ * screen instead; see the note at the head of that file.
  */
 html,
 body {
   margin: 0;
   padding: 0;
-  /* The dynamic viewport is the display. src/lib/frame.ts sets --app-height
-     only where dvh is unsupported; vh comes first for the same reason. */
+  /* vh first for a browser too old to know either of the other two. */
   height: 100vh;
   height: var(--app-height, 100dvh);
   overflow: hidden;
 }
 
+/*
+ * The page's colour over the frame, and the navigation bar's colour under it.
+ *
+ * The root's background covers the whole canvas — the whole display, even the
+ * part the page was not laid out against — while an image on it is sized and
+ * placed against the root's own box. So a flat gradient the colour of the page
+ * covers the frame exactly, and the colour underneath shows only in the strip
+ * below it, if there is one. What was showing through under the bar was the
+ * page; now it is the bar's own surface, carried on to the bottom edge.
+ *
+ * A backstop, not the fix — frame.ts reaches the frame down to the display — but
+ * one that costs a declaration and cannot itself go wrong: nothing is measured,
+ * nothing is positioned, and no box grows by so much as a pixel.
+ */
+html {
+  background-color: var(--bg-raised);
+  background-image: linear-gradient(var(--bg), var(--bg));
+  background-repeat: no-repeat;
+}
+
 body {
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 16px;
@@ -224,28 +242,26 @@ a {
   background: color-mix(in srgb, var(--bg-raised) 94%, transparent);
   backdrop-filter: blur(14px);
   border-top: 1px solid var(--line);
-  /* The tabs move inside the insets; the bar's surface still reaches the edge. */
-  padding-bottom: var(--safe-bottom);
+  /*
+   * The tabs move inside the insets; the bar's surface still reaches the edge.
+   * --app-stretch is how far past the box iOS laid the page out the frame has
+   * been reached, and is zero everywhere that box was the display already. The
+   * surface can be spared down there — the root's background is carrying the
+   * same colour to the bottom edge whatever iOS does about painting — but a
+   * label cannot, so the labels stay this side of the line.
+   */
+  padding-bottom: max(var(--safe-bottom), var(--app-stretch, 0px));
   padding-left: var(--safe-left);
   padding-right: var(--safe-right);
 }
 
 /*
- * A skirt below the bar, carrying its surface on past the bottom of the frame.
- * The bar is the last row now, so this only shows if the page itself turns out
- * shorter than the screen — an inset iOS resolves late, say. Nothing to see
- * when the frame reaches the bottom, and it cannot add to the scroll: the
- * frame does not scroll.
+ * There was a skirt here — a pseudo-element hanging below the bar to carry its
+ * surface past the bottom of a frame that had come up short. It never painted:
+ * the frame hides its overflow, so the strip was clipped away at the very edge
+ * it existed to cross. The root's background does that job now, above, without
+ * an element to clip or a scrollable region to grow.
  */
-.app-nav::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  height: 160px;
-  background: inherit;
-}
 
 .app-nav a {
   display: flex;
@@ -292,11 +308,6 @@ a {
     border-right: 1px solid var(--line);
     padding: calc(12px + var(--safe-top)) 10px calc(12px + var(--safe-bottom)) 10px;
     padding-left: max(10px, var(--safe-left));
-  }
-
-  /* The skirt covers a strip below a bottom bar. There is no bottom bar here. */
-  .app-nav::after {
-    content: none;
   }
 
   .app-nav a {
