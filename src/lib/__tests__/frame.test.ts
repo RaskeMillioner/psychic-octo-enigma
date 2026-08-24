@@ -53,13 +53,18 @@ test('a page in a browser is sized by the dynamic viewport', () => {
 });
 
 test('a Home Screen app laid out short of the screen takes the screen', () => {
-  // The reported case: the frame ends a status bar above the bottom edge, and
-  // a strip of page shows below the bar.
-  assert.deepEqual(frameHeight(phone({ laidOut: { width: 393, height: 852 - 59 } })), {
-    kind: 'screen',
-    height: 852,
-    stretch: 59,
-  });
+  // Straight off the phone that reported this, read from Settings: a screen of
+  // 393×852, a window and a dynamic viewport of 393×793, insets of 59 and 34.
+  // The frame ended at 793 and a 59-point strip of page showed below the bar.
+  assert.deepEqual(
+    frameHeight({
+      standalone: true,
+      screen: { width: 393, height: 852 },
+      laidOut: { width: 393, height: 793 },
+      insets: 59 + 34,
+    }),
+    { kind: 'screen', height: 852, stretch: 59 },
+  );
 });
 
 test('and one already reaching the bottom is given the same number', () => {
