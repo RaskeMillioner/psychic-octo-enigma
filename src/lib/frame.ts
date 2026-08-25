@@ -33,6 +33,12 @@
  * means something else (Android counts the system gesture bar in it), and the
  * frame is left as it was rather than reached under a bar it cannot see.
  *
+ * Before settling for that, a display that comes up short is asked to think
+ * again — the viewport meta tag is taken out and put straight back, which is
+ * the recomputation a rotation would have forced. Where that works there is
+ * nothing to reach past at all. Where it does not, the frame is reached down as
+ * described above and the two are indistinguishable from the outside.
+ *
  * How far the frame was reached down is published too, as --app-stretch, and
  * the bar keeps its labels that far up. Reaching the frame past the box iOS
  * laid the page out in is the whole point, but whether it will paint down there
@@ -159,8 +165,13 @@ export const readDisplay = (): Display => {
   };
 };
 
-/** Writes the frame's height onto the document for the CSS to use, if it needs one. */
-export const applyFrame = (): void => {
+/**
+ * Writes the frame's height onto the document for the CSS to use, if it needs
+ * one, and reports what it decided — so a caller can tell a display that is
+ * being reached past from one that was the right size to begin with, without
+ * measuring it all over again.
+ */
+export const applyFrame = (): Frame => {
   const root = document.documentElement;
   // Only what changes gets written: an identical rule rewritten on every resize
   // event is a style invalidation for nothing, and there are dozens of those
@@ -172,16 +183,49 @@ export const applyFrame = (): void => {
   };
 
   const frame = frameHeight(readDisplay());
-  if (frame.kind === 'unsettled') return;
+  if (frame.kind === 'unsettled') return frame;
   if (frame.kind === 'screen') {
     write('--app-height', `${frame.height}px`);
     write('--app-stretch', `${frame.stretch}px`);
-    return;
+    return frame;
   }
   // A browser tab: `100dvh` is the answer, unless this browser has never heard
   // of it, in which case the viewport is measured as it was before.
   write('--app-height', needsMeasuredHeight() ? `${window.innerHeight}px` : null);
   write('--app-stretch', null);
+  return frame;
+};
+
+/** How many times a launch will ask iOS to think again. */
+const NUDGE_LIMIT = 2;
+let nudges = 0;
+
+/**
+ * Asks the browser to work the viewport out again.
+ *
+ * A Home Screen app laid out short of the display puts itself right the moment
+ * the phone is turned: the rotation makes Safari recompute the viewport from
+ * scratch, and this time it takes the whole screen. Taking the viewport meta
+ * tag out of the document and putting it straight back asks for the same
+ * recomputation without turning anything, and if Safari obliges there is
+ * nothing left to reach past — the page is laid out on the display itself, the
+ * stretch is zero, and the bar sits on the bottom edge with only the home
+ * indicator beneath it.
+ *
+ * Whether it obliges is Safari's business, so this is written to cost nothing
+ * when it does not: the tag goes back in the same document position with the
+ * same content, in the same task, so there is no frame in which the page has no
+ * viewport to be laid out against; it is only tried where the display really is
+ * short; and it is tried twice at most.
+ */
+const nudgeViewport = (): void => {
+  const meta = document.querySelector('meta[name="viewport"]');
+  const parent = meta?.parentNode;
+  if (!meta || !parent) return;
+  nudges += 1;
+  const after = meta.nextSibling;
+  parent.removeChild(meta);
+  parent.insertBefore(meta, after);
 };
 
 /**
@@ -194,14 +238,25 @@ export const watchFrame = (): (() => void) => {
   let frame = 0;
   let timers: ReturnType<typeof setTimeout>[] = [];
 
-  const settle = () => {
-    cancelAnimationFrame(frame);
-    frame = requestAnimationFrame(applyFrame);
-    timers.forEach(clearTimeout);
-    timers = [setTimeout(applyFrame, 120), setTimeout(applyFrame, 400)];
+  // Applying is what has to happen on every event; nudging only follows an
+  // answer that says the display is being reached past, which after a rotation
+  // — or after a nudge that took — it no longer does.
+  const apply = () => {
+    const answer = applyFrame();
+    if (answer.kind === 'screen' && answer.stretch > 0 && nudges < NUDGE_LIMIT) {
+      nudgeViewport();
+      requestAnimationFrame(() => void applyFrame());
+    }
   };
 
-  applyFrame();
+  const settle = () => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(apply);
+    timers.forEach(clearTimeout);
+    timers = [setTimeout(apply, 120), setTimeout(apply, 400)];
+  };
+
+  apply();
   window.addEventListener('resize', settle);
   window.addEventListener('orientationchange', settle);
   window.addEventListener('pageshow', settle);
