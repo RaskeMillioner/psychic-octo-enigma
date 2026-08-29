@@ -21,6 +21,15 @@ export const Field = ({
   </label>
 );
 
+/** Autocomplete options for an input, wired up with its `list` attribute. */
+export const DataList = ({ id, options }: { id: string; options: string[] }) => (
+  <datalist id={id}>
+    {options.map((option) => (
+      <option key={option} value={option} />
+    ))}
+  </datalist>
+);
+
 export const Banner = ({
   tone = 'info',
   children,

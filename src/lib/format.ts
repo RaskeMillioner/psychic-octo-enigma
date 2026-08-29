@@ -90,8 +90,11 @@ export const parseDecimal = (input: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-export const parseGrapes = (input: string): string[] =>
+/** A comma-separated field as a list: "Chardonnay, Pinot Noir", "Anna, Peter". */
+export const parseList = (input: string): string[] =>
   input
     .split(',')
-    .map((grape) => grape.trim())
+    .map((part) => part.trim())
     .filter(Boolean);
+
+export const parseGrapes = parseList;

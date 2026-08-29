@@ -4,7 +4,7 @@ import { parseGrapes } from '../lib/format';
 import { ORIGIN_LABELS, type Provenance, type ProvenanceKey } from '../lib/labelFields';
 import { useData } from '../lib/store';
 import { BOTTLE_SIZES, WINE_TYPES, type WineFacts } from '../types';
-import { Field, NumberInput } from './ui';
+import { DataList, Field, NumberInput } from './ui';
 
 /** Values already used in the cellar or diary, offered as autocomplete. */
 const useSuggestions = () => {
@@ -22,14 +22,6 @@ const useSuggestions = () => {
     };
   }, [wines, diary]);
 };
-
-const DataList = ({ id, options }: { id: string; options: string[] }) => (
-  <datalist id={id}>
-    {options.map((option) => (
-      <option key={option} value={option} />
-    ))}
-  </datalist>
-);
 
 interface Props {
   value: WineFacts;
