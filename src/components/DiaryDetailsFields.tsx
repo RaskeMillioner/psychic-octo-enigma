@@ -3,6 +3,7 @@ import {
   describeVenuePatch,
   rememberedCities,
   rememberedCompanions,
+  rememberedOccasions,
   rememberedPlaces,
   rememberedVenueCountries,
   rememberedVenues,
@@ -47,6 +48,7 @@ const useMemory = () => {
       cities: rememberedCities(diary),
       countries: rememberedVenueCountries(diary),
       companions: rememberedCompanions(diary),
+      occasions: rememberedOccasions(diary),
     }),
     [diary],
   );
@@ -149,6 +151,7 @@ export const DiaryDetailsFields = ({ value, onChange }: Props) => {
       <div className="grid-2">
         <Field label="Occasion">
           <input
+            list="diary-occasions"
             value={value.occasion}
             placeholder="Sunday roast"
             onChange={(event) => onChange({ occasion: event.target.value })}
@@ -163,6 +166,7 @@ export const DiaryDetailsFields = ({ value, onChange }: Props) => {
           />
         </Field>
       </div>
+      <DataList id="diary-occasions" options={memory.occasions} />
       <DataList id="diary-companions" options={companionOptions} />
 
       <div>

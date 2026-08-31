@@ -4,6 +4,7 @@ import {
   describeVenuePatch,
   rememberedCities,
   rememberedCompanions,
+  rememberedOccasions,
   rememberedPlaces,
   rememberedVenueCountries,
   rememberedVenues,
@@ -73,6 +74,16 @@ test('spellings that differ only in case or accent count as one value', () => {
   assert.deepEqual(venues, ['Café Noir']);
 });
 
+test('the spelling you use most is the one offered back', () => {
+  const venues = rememberedVenues([
+    atVenue({ venue: 'Café Noir', drunkOn: '2026-01-01' }),
+    atVenue({ venue: 'Café Noir', drunkOn: '2026-02-01' }),
+    // One hurried entry, and the most recent — but not how it is usually typed.
+    atVenue({ venue: 'cafe noir', drunkOn: '2026-05-01' }),
+  ]);
+  assert.deepEqual(venues, ['Café Noir']);
+});
+
 test('places and venues stay in their own lists', () => {
   const diary = [
     entry({ place: 'Home' }),
@@ -104,6 +115,15 @@ test('naming the same person twice in one entry counts once', () => {
     entry({ companions: 'Peter' }),
   ]);
   assert.deepEqual(names, ['Peter', 'Anna']);
+});
+
+test('occasions are remembered wherever the bottle was drunk', () => {
+  const occasions = rememberedOccasions([
+    entry({ occasion: 'Sunday roast' }),
+    atVenue({ venue: 'Noma', occasion: "Anna's birthday" }),
+    entry({ occasion: 'sunday roast' }),
+  ]);
+  assert.deepEqual(occasions, ['Sunday roast', "Anna's birthday"]);
 });
 
 test('a venue remembers where it was on the most recent visit', () => {

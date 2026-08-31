@@ -1,5 +1,7 @@
+import { normalize } from './appellation.ts';
+import { rememberedCompanions } from './diaryMemory.ts';
 import { windowStatus } from './drinkWindow.ts';
-import { placeLabel } from './format.ts';
+import { parseList, placeLabel } from './format.ts';
 import type { CellarWine, DiaryEntry, WineFacts } from '../types';
 
 export interface Slice {
@@ -43,6 +45,29 @@ const rank = (
 
 const grapeEntries = <T extends WineFacts>(items: T[], weight: (item: T) => number) =>
   items.flatMap((item) => item.grapes.map((grape) => [grape, weight(item)] as [string, number]));
+
+/**
+ * A bottle counts once for every person it was shared with, so "Anna, Peter"
+ * and "Peter, Anna" are the same evening and Anna scores whether she was there
+ * alone or with company. Names fold on the same normalised key the "shared
+ * with" autocomplete uses, and are shown with the spelling it offers, so the
+ * chart and the field never disagree about how someone is spelled.
+ */
+const companionEntries = (diary: DiaryEntry[]): [string, number][] => {
+  const roster = new Map(rememberedCompanions(diary).map((name) => [normalize(name), name]));
+
+  return diary.flatMap((entry) => {
+    const seen = new Set<string>();
+    const rows: [string, number][] = [];
+    for (const name of parseList(entry.companions)) {
+      const key = normalize(name);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      rows.push([roster.get(key) ?? name, 1]);
+    }
+    return rows;
+  });
+};
 
 /* ------------------------------------------------------------------ cellar */
 
@@ -140,8 +165,11 @@ export interface DiaryStats {
   byGrape: Slice[];
   byProducer: Slice[];
   byPlace: Slice[];
+  byCompanion: Slice[];
   /** Bottles consumed out rather than at home. */
   atVenue: number;
+  /** Bottles drunk in someone's company rather than alone. */
+  shared: number;
   ratingSpread: Slice[];
   ratingByCountry: Slice[];
   ratingByType: Slice[];
@@ -228,7 +256,9 @@ export const diaryStats = (diary: DiaryEntry[], fallbackCurrency: string): Diary
     byGrape: rank(grapeEntries(diary, () => 1), 8),
     byProducer: rank(diary.map((entry) => [entry.producer, 1]), 8),
     byPlace: rank(diary.map((entry) => [placeLabel(entry), 1]), 6),
+    byCompanion: rank(companionEntries(diary), 8),
     atVenue: diary.filter((entry) => entry.setting === 'venue').length,
+    shared: diary.filter((entry) => parseList(entry.companions).length > 0).length,
     ratingSpread,
     ratingByCountry: averageBy(diary, (entry) => entry.country),
     ratingByType: averageBy(diary, (entry) => entry.wineType),

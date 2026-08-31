@@ -224,3 +224,47 @@ test('the last twelve months are counted, in order, including the quiet ones', (
     3,
   );
 });
+
+test('companions are counted per person, not per group', () => {
+  const stats = diaryStats(
+    [
+      entry({ companions: 'Anna, Peter' }),
+      entry({ companions: 'Anna' }),
+      entry({ companions: '' }),
+    ],
+    'EUR',
+  );
+  assert.deepEqual(stats.byCompanion, [
+    { label: 'Anna', value: 2 },
+    { label: 'Peter', value: 1 },
+  ]);
+  assert.equal(stats.shared, 2);
+});
+
+test('the order names are typed in makes no difference', () => {
+  const oneWay = diaryStats([entry({ companions: 'Anna, Peter' })], 'EUR');
+  const other = diaryStats([entry({ companions: 'Peter, Anna' })], 'EUR');
+  assert.deepEqual(oneWay.byCompanion, other.byCompanion);
+});
+
+test('a person is one person however their name is capitalised', () => {
+  const stats = diaryStats(
+    [
+      entry({ companions: 'Anna', drunkOn: '2026-03-01' }),
+      entry({ companions: 'anna', drunkOn: '2026-01-01' }),
+    ],
+    'EUR',
+  );
+  assert.deepEqual(stats.byCompanion, [{ label: 'Anna', value: 2 }]);
+});
+
+test('naming someone twice in one entry counts one bottle', () => {
+  const stats = diaryStats([entry({ companions: 'Anna, Anna' })], 'EUR');
+  assert.deepEqual(stats.byCompanion, [{ label: 'Anna', value: 1 }]);
+});
+
+test('a diary with nobody named has no companions to chart', () => {
+  const stats = diaryStats([entry({ companions: '' }), entry({ companions: '  ,  ' })], 'EUR');
+  assert.deepEqual(stats.byCompanion, []);
+  assert.equal(stats.shared, 0);
+});

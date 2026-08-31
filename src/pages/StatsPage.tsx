@@ -187,6 +187,15 @@ export const StatsPage = () => {
           >
             <RankedBars data={drunk.byPlace} format={bottles} />
           </ChartCard>
+
+          {drunk.byCompanion.length ? (
+            <ChartCard
+              title="Who you drank with"
+              note={`${drunk.shared} of ${drunk.bottles} bottles were shared.`}
+            >
+              <RankedBars data={drunk.byCompanion} format={bottles} />
+            </ChartCard>
+          ) : null}
         </div>
       )}
     </Screen>

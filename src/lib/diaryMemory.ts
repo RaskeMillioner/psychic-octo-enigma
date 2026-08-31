@@ -5,17 +5,31 @@ import { parseList } from './format.ts';
 /** When a value was last used — the drinking date, or failing that when it was written. */
 const lastUsed = (entry: DiaryEntry): string => entry.drunkOn || entry.createdAt || '';
 
-interface Tally {
-  label: string;
+interface Use {
   count: number;
   last: string;
 }
 
+interface Tally extends Use {
+  /** Every spelling seen of this one value, so the usual one can be shown. */
+  spellings: Map<string, Use>;
+}
+
+/**
+ * Most used wins, most recent breaks the tie. Two spellings used exactly alike
+ * is a coin toss, so the last word goes to the capitalised one — "Sunday roast"
+ * rather than "sunday roast".
+ */
+const byUse = (a: [string, Use], b: [string, Use]) =>
+  b[1].count - a[1].count ||
+  b[1].last.localeCompare(a[1].last) ||
+  a[0].localeCompare(b[0], undefined, { caseFirst: 'upper' });
+
 /**
  * Distinct values out of the diary, likeliest first: what you use most often,
  * and among equals what you used most recently. Matching ignores case and
- * accents, and the spelling offered is the one from the most recent use, so a
- * hurried "cafe noir" does not replace "Café Noir" in the list.
+ * accents, and a value is shown with the spelling you use most, so one hurried
+ * "cafe noir" does not rename Café Noir everywhere it appears.
  */
 const rememberedValues = (
   diary: DiaryEntry[],
@@ -33,25 +47,26 @@ const rememberedValues = (
       if (!key || seen.has(key)) continue;
       seen.add(key);
 
-      const tally = tallies.get(key);
+      let tally = tallies.get(key);
       if (!tally) {
-        tallies.set(key, { label, count: 1, last: used });
-        continue;
+        tally = { count: 0, last: used, spellings: new Map() };
+        tallies.set(key, tally);
       }
       tally.count += 1;
-      if (used > tally.last) {
-        tally.label = label;
-        tally.last = used;
+      if (used > tally.last) tally.last = used;
+
+      const spelling = tally.spellings.get(label);
+      if (!spelling) tally.spellings.set(label, { count: 1, last: used });
+      else {
+        spelling.count += 1;
+        if (used > spelling.last) spelling.last = used;
       }
     }
   }
 
-  return [...tallies.values()]
-    .sort(
-      (a, b) =>
-        b.count - a.count || b.last.localeCompare(a.last) || a.label.localeCompare(b.label),
-    )
-    .map((tally) => tally.label);
+  return [...tallies.entries()]
+    .sort(byUse)
+    .map(([, tally]) => [...tally.spellings.entries()].sort(byUse)[0][0]);
 };
 
 const atVenue = (diary: DiaryEntry[]) => diary.filter((entry) => entry.setting === 'venue');
@@ -72,6 +87,10 @@ export const rememberedVenueCountries = (diary: DiaryEntry[]): string[] =>
 /** Everyone you have ever drunk with, as individual names rather than as groups. */
 export const rememberedCompanions = (diary: DiaryEntry[]): string[] =>
   rememberedValues(diary, (entry) => parseList(entry.companions));
+
+/** Occasions are drawn from the whole diary: a birthday is one at home or out. */
+export const rememberedOccasions = (diary: DiaryEntry[]): string[] =>
+  rememberedValues(diary, (entry) => [entry.occasion]);
 
 export type VenueLocation = Pick<DiaryEntry, 'venue' | 'city' | 'venueCountry'>;
 
