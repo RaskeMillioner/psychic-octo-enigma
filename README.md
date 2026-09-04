@@ -62,11 +62,22 @@ runs through Google Search on Gemini and Anthropic's web search on Claude; where
 is too old to combine searching with a JSON schema, the scan retries without it rather
 than failing.
 
-Grounding is quota'd **separately** from ordinary requests, and that quota is not the one
-a provider's rate-limit page shows — so a key with requests to spare can still have its
-searches refused. When that happens the scan drops the lookup, reads the label alone, and
-says so, and it stops asking for the rest of the session rather than spending a request on
-a refusal every time.
+Which search Claude gets depends on the model you pick. Claude 4.6 and later can filter
+results inside code execution before they reach the model, which costs fewer tokens; models
+older than that — Haiku 4.5 among them — cannot, and reject the whole request rather than
+searching unfiltered, so they are given the plain search tool from the start instead of a
+round trip spent learning that again on every scan. A rejection even so steps the lookup
+down a rung, and then off.
+
+On Gemini, a grounded call refused with a 403 or 429 is the quota case: grounding is
+quota'd **separately** from ordinary requests, and that quota is not the one a provider's
+rate-limit page shows, so a key with requests to spare can still have its searches refused;
+the scan stops asking for the rest of the session rather than spending a request on a
+refusal every time.
+
+Either way the label itself is still readable, so the scan reads it alone and says in the
+banner why the lookup didn't run — quoting what the provider actually said, rather than
+naming one cause for every rejection.
 
 Every field it fills carries a note saying **where that value came from and how sure it
 is** — read off the label, found online, inferred from the appellation, or a low-confidence

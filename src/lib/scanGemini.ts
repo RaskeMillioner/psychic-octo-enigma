@@ -219,8 +219,14 @@ interface GeminiReading<T> {
   parsed: T;
   usedModel: string;
   searched: boolean;
-  lookupRefused: boolean;
+  lookupIssue?: string;
 }
+
+/** Said once, wherever a grounded Gemini call comes back refused. */
+const GROUNDING_REFUSED =
+  'The web lookup didn’t run, so this scan read the label only. Your key’s grounding ' +
+  'allowance was refused — it is quota’d separately from ordinary requests, and is not ' +
+  'the quota the rate-limit page shows. Turn the lookup off in Settings to stop asking.';
 
 /**
  * Set once a grounded request has been refused. Asking again costs a request
@@ -267,10 +273,10 @@ const readWithGemini = async <T>(
   // and that quota is not the one the rate-limit page shows. If a grounded call
   // is refused, the label itself is still readable, so drop the search and try
   // again before blaming the model.
-  let lookupRefused = false;
+  let lookupIssue: string | undefined;
   if (searching && (response.status === 429 || response.status === 403)) {
     searching = false;
-    lookupRefused = true;
+    lookupIssue = GROUNDING_REFUSED;
     groundingRefused = true;
     response = await call(usedModel);
   }
@@ -308,6 +314,7 @@ const readWithGemini = async <T>(
     const rejected = await readError(response);
     if (searching && /tool|search|grounding|schema/i.test(rejected.message)) {
       searching = false;
+      lookupIssue = `The web lookup didn’t run, so this scan read the label only. ${usedModel} rejected it: ${rejected.message}`;
       response = await call(usedModel);
     } else if (/thinking/i.test(rejected.message)) {
       response = await call(usedModel, false);
@@ -347,7 +354,7 @@ const readWithGemini = async <T>(
     throw new Error("Couldn't read anything usable from that photo. Try again in better light.");
   }
 
-  return { parsed, usedModel, searched: searching, lookupRefused };
+  return { parsed, usedModel, searched: searching, lookupIssue };
 };
 
 /** Reads a label with Gemini, which has a no-cost free tier. */
@@ -357,7 +364,7 @@ export const scanWithGemini = async (
   model: string,
   webLookup: boolean,
 ): Promise<GeminiScanOutcome> => {
-  const { parsed, usedModel, searched, lookupRefused } = await readWithGemini<LabelReading>(
+  const { parsed, usedModel, searched, lookupIssue } = await readWithGemini<LabelReading>(
     LABEL_TASK,
     photo,
     apiKey,
@@ -373,7 +380,7 @@ export const scanWithGemini = async (
     provenance: toProvenance(parsed.fields),
     window: toWindow(parsed),
     searched,
-    lookupRefused,
+    lookupIssue,
     usedModel,
   };
 };
