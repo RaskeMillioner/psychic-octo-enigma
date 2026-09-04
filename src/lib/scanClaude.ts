@@ -14,6 +14,7 @@ import {
 import { LabelSchema } from './labelSchema';
 import { RECEIPT_SYSTEM_PROMPT, RECEIPT_USER_PROMPT, toReceipt, type Receipt, type ReceiptReading } from './receiptFields.ts';
 import { ReceiptSchema } from './receiptSchema';
+import { supportsFilteredSearch } from './claudeModels.ts';
 import type { ScanResult } from './scanTypes.ts';
 
 interface Reading<T> {
@@ -25,13 +26,12 @@ interface Reading<T> {
 }
 
 /**
- * How the web lookup is attached to a request. `filtered` is the tool's own
- * default, where the search runs from inside code execution so results are
- * filtered before they reach the model; `direct` is the same search without
- * that step, which is what accounts and models that cannot run the code
- * execution half need.
+ * How the web lookup is attached to a request. `filtered` runs the search from
+ * inside code execution so results are filtered before they reach the model,
+ * which costs fewer tokens; `basic` is the plain search tool every model that
+ * can search at all accepts.
  */
-type SearchMode = 'filtered' | 'direct' | 'off';
+type SearchMode = 'filtered' | 'basic' | 'off';
 
 const searchTools = (mode: SearchMode) =>
   mode === 'off'
@@ -39,10 +39,9 @@ const searchTools = (mode: SearchMode) =>
     : {
         tools: [
           {
-            type: 'web_search_20260209' as const,
+            type: mode === 'filtered' ? ('web_search_20260209' as const) : ('web_search_20250305' as const),
             name: 'web_search' as const,
             max_uses: 5,
-            ...(mode === 'direct' ? { allowed_callers: ['direct' as const] } : {}),
           },
         ],
       };
@@ -76,11 +75,12 @@ const readWithClaude = async <T>(
     },
   ];
 
-  let mode: SearchMode = webLookup ? 'filtered' : 'off';
+  const scanModel = model || 'claude-opus-5';
+  let mode: SearchMode = 'off';
 
   const ask = () =>
     client.messages.parse({
-      model: model || 'claude-opus-5',
+      model: scanModel,
       max_tokens: 16000,
       system,
       messages,
@@ -88,11 +88,16 @@ const readWithClaude = async <T>(
       output_config: { format: zodOutputFormat(schema) },
     });
 
-  // A 400 on a request carrying the search tool says the request was rejected,
-  // not why — the account, the model and the tool's own code-execution half are
-  // all reachable causes. So step the lookup down rather than guess at it, and
-  // keep what the API actually said for the one case where nothing works.
-  const ladder: SearchMode[] = mode === 'off' ? ['off'] : ['filtered', 'direct', 'off'];
+  // Ask for the most the model can do, then step down. A 400 on a request
+  // carrying the search tool says it was rejected, not why — the account, the
+  // model and the tool's own code-execution half are all reachable causes — so
+  // the steps are worth taking rather than guessing between them, and what the
+  // API actually said is worth keeping for the case where nothing works.
+  const ladder: SearchMode[] = !webLookup
+    ? ['off']
+    : supportsFilteredSearch(scanModel)
+      ? ['filtered', 'basic', 'off']
+      : ['basic', 'off'];
   let response: Awaited<ReturnType<typeof ask>> | undefined;
   let rejection = '';
 

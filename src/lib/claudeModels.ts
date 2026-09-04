@@ -49,3 +49,21 @@ export const listClaudeModels = async (apiKey: string): Promise<ScanModel[]> => 
     .filter((model) => model.capabilities?.image_input?.supported !== false)
     .map((model) => ({ id: model.id, label: model.display_name || model.id }));
 };
+
+/**
+ * Whether a model can run the filtered search. Filtering happens inside code
+ * execution, so it needs a model that can call tools from there — Claude 4.6
+ * and later. Older ones, Haiku 4.5 among them, reject the whole request rather
+ * than searching without the filter, and a scan that learns that from a 400
+ * pays for the photo twice. So read it off the id instead: `claude-haiku-4-5`
+ * is 4.5, `claude-sonnet-4-6` is 4.6, `claude-3-5-haiku-20241022` is 3.5, and a
+ * trailing date is not a version.
+ *
+ * Exported for testing: picking this wrong is the difference between a lookup
+ * that works and one that silently never runs.
+ */
+export const supportsFilteredSearch = (model: string): boolean => {
+  const version = /claude-(?:[a-z]+-)?(\d+)(?:[-.](\d+))?/.exec(model);
+  if (!version) return false;
+  return Number(version[1]) * 100 + Number(version[2] ?? 0) >= 406;
+};
