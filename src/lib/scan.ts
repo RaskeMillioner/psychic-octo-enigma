@@ -1,3 +1,4 @@
+import { loadModule } from './lazy.ts';
 import type { ScanProvider, Settings } from '../types';
 import type { Receipt } from './receiptFields.ts';
 import type { ScanResult } from './scanTypes.ts';
@@ -38,7 +39,7 @@ export const scanLabel = async (photo: Blob, settings: Settings): Promise<ScanOu
   const provider = resolveProvider(settings);
 
   if (provider === 'gemini') {
-    const { scanWithGemini } = await import('./scanGemini.ts');
+    const { scanWithGemini } = await loadModule(() => import('./scanGemini.ts'));
     const outcome = await scanWithGemini(
       photo,
       settings.geminiApiKey,
@@ -48,7 +49,7 @@ export const scanLabel = async (photo: Blob, settings: Settings): Promise<ScanOu
     return { ...outcome, provider };
   }
 
-  const { scanWithClaude } = await import('./scanClaude.ts');
+  const { scanWithClaude } = await loadModule(() => import('./scanClaude.ts'));
   const result = await scanWithClaude(
     photo,
     settings.apiKey,
@@ -73,7 +74,7 @@ export const scanReceipt = async (photo: Blob, settings: Settings): Promise<Rece
   const provider = resolveProvider(settings);
 
   if (provider === 'gemini') {
-    const { scanReceiptWithGemini } = await import('./scanGemini.ts');
+    const { scanReceiptWithGemini } = await loadModule(() => import('./scanGemini.ts'));
     const receipt = await scanReceiptWithGemini(
       photo,
       settings.geminiApiKey,
@@ -83,7 +84,7 @@ export const scanReceipt = async (photo: Blob, settings: Settings): Promise<Rece
     return { ...receipt, provider };
   }
 
-  const { scanReceiptWithClaude } = await import('./scanClaude.ts');
+  const { scanReceiptWithClaude } = await loadModule(() => import('./scanClaude.ts'));
   const receipt = await scanReceiptWithClaude(
     photo,
     settings.apiKey,

@@ -10,6 +10,7 @@ import { findDuplicate, mergeIntoCellar } from '../lib/duplicates';
 import { formatMoney, sizeLabel } from '../lib/format';
 import { resolvePhotoBlob, commitPhoto, type PhotoRef } from '../lib/photos';
 import type { ReceiptLine } from '../lib/receiptFields';
+import { isStaleBuild } from '../lib/lazy';
 import { PROVIDER_LABELS, providerKey, resolveProvider, scanReceipt } from '../lib/scan';
 import { useData } from '../lib/store';
 import type { CellarWine } from '../types';
@@ -32,6 +33,7 @@ export const ReceiptScanPage = () => {
   const [photo, setPhoto] = useState<PhotoRef>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [stale, setStale] = useState(false);
   const [notes, setNotes] = useState('');
   const [scanned, setScanned] = useState(false);
   const [merchant, setMerchant] = useState('');
@@ -52,6 +54,7 @@ export const ReceiptScanPage = () => {
     }
     setBusy(true);
     setError('');
+    setStale(false);
     setSummary('');
     try {
       const receipt = await scanReceipt(source, settings);
@@ -67,6 +70,7 @@ export const ReceiptScanPage = () => {
       setRows(receipt.lines.map((line) => ({ ...line, keep: true })));
     } catch (scanError) {
       setError(scanError instanceof Error ? scanError.message : 'Scanning failed.');
+      setStale(isStaleBuild(scanError));
     } finally {
       setBusy(false);
     }
@@ -182,7 +186,24 @@ export const ReceiptScanPage = () => {
           </Banner>
         ) : null}
 
-        {error ? <Banner tone="error">{error}</Banner> : null}
+        {error ? (
+          <Banner tone="error">
+            {error}
+            {stale ? (
+              <div className="row" style={{ marginTop: 9 }}>
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => {
+                    window.location.reload();
+                  }}
+                >
+                  Reload the app
+                </button>
+              </div>
+            ) : null}
+          </Banner>
+        ) : null}
         {summary ? (
           <Banner tone="success">
             {summary}{' '}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { appellationPatch, findAppellation } from '../lib/appellation';
 import type { DrinkWindow, Provenance, ProvenanceKey } from '../lib/labelFields';
 import { resolvePhotoBlob, type PhotoRef } from '../lib/photos';
+import { isStaleBuild } from '../lib/lazy';
 import { PROVIDER_LABELS, providerKey, resolveProvider, scanLabel, type ScanOutcome } from '../lib/scan';
 import { useData } from '../lib/store';
 import type { WineFacts } from '../types';
@@ -28,6 +29,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
   const { settings, updateSettings } = useData();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [stale, setStale] = useState(false);
   const [copied, setCopied] = useState(false);
   const [result, setResult] = useState<ScanOutcome | null>(null);
 
@@ -42,6 +44,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
     }
     setBusy(true);
     setError('');
+    setStale(false);
     setCopied(false);
     setResult(null);
     try {
@@ -65,6 +68,7 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
       onFacts(facts, provenance, scan.window);
     } catch (scanError) {
       setError(scanError instanceof Error ? scanError.message : 'Scanning failed.');
+      setStale(isStaleBuild(scanError));
     } finally {
       setBusy(false);
     }
@@ -106,8 +110,19 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
       {error ? (
         <Banner tone="error">
           {error}
-          {navigator.clipboard ? (
-            <div style={{ marginTop: 9 }}>
+          <div className="row" style={{ marginTop: 9 }}>
+            {stale ? (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => {
+                  window.location.reload();
+                }}
+              >
+                Reload the app
+              </button>
+            ) : null}
+            {navigator.clipboard ? (
               <button
                 type="button"
                 className="btn btn-sm"
@@ -120,8 +135,8 @@ export const LabelScanner = ({ photo, onPhotoChange, onFacts }: Props) => {
               >
                 {copied ? 'Copied' : 'Copy details'}
               </button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
         </Banner>
       ) : null}
 
